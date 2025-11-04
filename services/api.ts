@@ -355,6 +355,53 @@ const payTeacherDebt = async (debtId: string) => {
     return mockTeacherDebts.find(d => d.id === debtId)!;
 };
 
+const importStudents = async (studentsData: { nis: string; name: string; class: string }[]): Promise<{ successCount: number; errorCount: number; errors: string[] }> => {
+    await delay(1000); // Simulate network and processing time
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (const [index, studentData] of studentsData.entries()) {
+        const rowNum = index + 2; // Assuming CSV has a header row
+        // Validation
+        if (!studentData.nis || !studentData.name || !studentData.class) {
+            errors.push(`Baris ${rowNum}: Data tidak lengkap.`);
+            errorCount++;
+            continue;
+        }
+        if (mockStudents.some(s => s.nis === studentData.nis)) {
+            errors.push(`Baris ${rowNum}: NIS "${studentData.nis}" sudah ada.`);
+            errorCount++;
+            continue;
+        }
+        if (!mockClasses.some(c => c.name === studentData.class)) {
+            errors.push(`Baris ${rowNum}: Kelas "${studentData.class}" tidak ditemukan.`);
+            errorCount++;
+            continue;
+        }
+        
+        // If valid, create student and user
+        try {
+            // Re-using createStudent logic, but simplified for bulk action
+            const newStudent: Student = { id: generateId('student'), balance: 0, totalDebt: 0, ...studentData };
+            mockStudents.push(newStudent);
+            
+            const username = `siswa_${studentData.name.toLowerCase().split(' ')[0].replace(/[^a-z0-9]/gi, '')}${Math.floor(Math.random()*100)}`;
+            const newUser: User = { id: generateId('user'), username, role: Role.SISWA, studentProfile: newStudent };
+            mockUsers.push(newUser);
+            mockPasswords[newUser.id] = 'password';
+            
+            successCount++;
+        } catch (e) {
+            errors.push(`Baris ${rowNum}: Terjadi kesalahan internal saat membuat siswa "${studentData.name}".`);
+            errorCount++;
+        }
+    }
+    
+    return { successCount, errorCount, errors };
+};
+
+
 export const api = {
     login,
     getProfile,
@@ -384,5 +431,6 @@ export const api = {
     payTeacherDebt,
     getStudentById,
     getSavingsByStudent,
-    getDebtsByStudent
+    getDebtsByStudent,
+    importStudents,
 };
