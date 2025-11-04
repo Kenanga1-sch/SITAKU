@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface StatCardProps {
@@ -15,7 +16,7 @@ const colorClasses = {
     red: 'bg-red-100 text-red-600',
 };
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color = 'blue' }) => {
+const StatCard = ({ title, value, icon, color = 'blue' }: StatCardProps) => {
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm flex items-center gap-6">
             <div className={`flex-shrink-0 w-14 h-14 flex items-center justify-center rounded-full ${colorClasses[color]}`}>

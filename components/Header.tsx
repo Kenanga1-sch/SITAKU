@@ -1,12 +1,11 @@
 
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../contexts/UIContext';
 import { LogoutIcon, MenuIcon } from './Icons';
 
-const Header: React.FC = () => {
+const Header = () => {
     const { user, logout } = useAuth();
     const { toggleSidebar } = useUI();
     const navigate = useNavigate();

@@ -136,10 +136,9 @@ const apiService = {
     // --- Class Management ---
     getAllClasses: async () => {
         await sleep(500);
-        return classes.map(c => ({
-            ...c,
-            studentCount: students.filter(s => s.class === c.name).length
-        }));
+        // OPTIMIZATION: Return the class data directly. 
+        // studentCount is now managed by mutation functions.
+        return classes;
     },
     createClass: async (classData: { name: string }) => {
         await sleep(500);
@@ -210,19 +209,42 @@ const apiService = {
         if (students.some(s => s.nis === studentData.nis)) throw new Error('NIS sudah terdaftar.');
         const newStudent: Student = { ...studentData, id: `student-${Date.now()}`, balance: 0, totalDebt: 0 };
         students.push(newStudent);
+        
+        // OPTIMIZATION: Update student count for data integrity
+        const studentClass = classes.find(c => c.name === newStudent.class);
+        if (studentClass) {
+            studentClass.studentCount++;
+        }
+
         return newStudent;
     },
     updateStudent: async (id: string, studentData: any) => {
         await sleep(500);
         const studentIndex = students.findIndex(s => s.id === id);
         if (studentIndex > -1) {
-            students[studentIndex] = { ...students[studentIndex], ...studentData };
+            const oldStudent = students[studentIndex];
+            // OPTIMIZATION: Update student count if class changes
+            if (oldStudent.class !== studentData.class) {
+                const oldClass = classes.find(c => c.name === oldStudent.class);
+                if(oldClass) oldClass.studentCount--;
+                const newClass = classes.find(c => c.name === studentData.class);
+                if(newClass) newClass.studentCount++;
+            }
+            students[studentIndex] = { ...oldStudent, ...studentData };
             return students[studentIndex];
         }
         throw new Error('Siswa tidak ditemukan.');
     },
     deleteStudent: async (id: string) => {
         await sleep(500);
+        const studentToDelete = students.find(s => s.id === id);
+        if (studentToDelete) {
+             // OPTIMIZATION: Update student count for data integrity
+            const studentClass = classes.find(c => c.name === studentToDelete.class);
+            if (studentClass) {
+                studentClass.studentCount--;
+            }
+        }
         students = students.filter(s => s.id !== id);
         return { message: 'Siswa berhasil dihapus' };
     },
@@ -243,6 +265,9 @@ const apiService = {
                 errors.push(`Baris ${i+1}: Kelas "${s.class}" tidak ditemukan.`);
             } else {
                 students.push({ ...s, id: `student-${Date.now()}-${i}`, balance: 0, totalDebt: 0 });
+                // OPTIMIZATION: Update student count for data integrity
+                const studentClass = classes.find(c => c.name === s.class);
+                if (studentClass) studentClass.studentCount++;
                 successCount++;
             }
         });
