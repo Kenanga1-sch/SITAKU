@@ -164,9 +164,21 @@ const updateClass = async (id: string, classData: { name: string }) => {
 const assignWaliKelas = async (classId: string, waliKelasId: string | null) => {
     await delay(500);
     const teacher = waliKelasId ? mockUsers.find(u => u.id === waliKelasId) : null;
+    const className = mockClasses.find(c => c.id === classId)?.name;
 
-    // Unassign this teacher from any other class first
-    mockUsers = mockUsers.map(u => u.id === waliKelasId ? { ...u, classManaged: teacher ? mockClasses.find(c => c.id === classId)?.name : undefined } : u);
+    // Update teacher's classManaged property
+    mockUsers = mockUsers.map(u => {
+      // Remove classManaged from old wali kelas of this class
+      if(u.id === mockClasses.find(c => c.id === classId)?.waliKelasId) {
+        const { classManaged, ...rest } = u;
+        return rest;
+      }
+      // Assign classManaged to new wali kelas
+      if(u.id === waliKelasId) {
+        return { ...u, classManaged: className };
+      }
+      return u;
+    });
     
     mockClasses = mockClasses.map(c => {
         // Unassign from other classes if this teacher was assigned elsewhere
@@ -210,6 +222,9 @@ const createStudent = async (studentData: Pick<Student, 'nis'|'name'|'class'>) =
     const newStudent: Student = { id: generateId('student'), balance: 0, totalDebt: 0, ...studentData };
     mockStudents.push(newStudent);
     
+    // Update student count in class
+    mockClasses = mockClasses.map(c => c.name === studentData.class ? { ...c, studentCount: c.studentCount + 1 } : c);
+
     // Also create a user for the student
     const username = `siswa_${studentData.name.toLowerCase().split(' ')[0]}${Math.floor(Math.random()*100)}`;
     const newUser: User = { id: generateId('user'), username, role: Role.SISWA, studentProfile: newStudent };
@@ -219,11 +234,28 @@ const createStudent = async (studentData: Pick<Student, 'nis'|'name'|'class'>) =
 };
 const updateStudent = async (id: string, studentData: Partial<Student>) => {
     await delay(500);
+    const oldStudent = mockStudents.find(s => s.id === id);
+
+    // If class is changed, update student counts
+    if (oldStudent && studentData.class && oldStudent.class !== studentData.class) {
+        mockClasses = mockClasses.map(c => {
+            if (c.name === oldStudent.class) return { ...c, studentCount: c.studentCount - 1};
+            if (c.name === studentData.class) return { ...c, studentCount: c.studentCount + 1};
+            return c;
+        });
+    }
+
     mockStudents = mockStudents.map(s => s.id === id ? { ...s, ...studentData } : s);
     return mockStudents.find(s => s.id === id)!;
 };
 const deleteStudent = async (id: string) => {
     await delay(500);
+    const studentToDelete = mockStudents.find(s => s.id === id);
+    if (!studentToDelete) return;
+
+    // Update student count in class
+    mockClasses = mockClasses.map(c => c.name === studentToDelete.class ? { ...c, studentCount: c.studentCount - 1 } : c);
+
     // Also delete student's user account
     const studentUser = mockUsers.find(u => u.studentProfile?.id === id);
     if (studentUser) {
@@ -383,14 +415,7 @@ const importStudents = async (studentsData: { nis: string; name: string; class: 
         // If valid, create student and user
         try {
             // Re-using createStudent logic, but simplified for bulk action
-            const newStudent: Student = { id: generateId('student'), balance: 0, totalDebt: 0, ...studentData };
-            mockStudents.push(newStudent);
-            
-            const username = `siswa_${studentData.name.toLowerCase().split(' ')[0].replace(/[^a-z0-9]/gi, '')}${Math.floor(Math.random()*100)}`;
-            const newUser: User = { id: generateId('user'), username, role: Role.SISWA, studentProfile: newStudent };
-            mockUsers.push(newUser);
-            mockPasswords[newUser.id] = 'password';
-            
+            await createStudent({nis: studentData.nis, name: studentData.name, class: studentData.class});
             successCount++;
         } catch (e) {
             errors.push(`Baris ${rowNum}: Terjadi kesalahan internal saat membuat siswa "${studentData.name}".`);

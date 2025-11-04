@@ -1,5 +1,6 @@
 
-import React, { memo } from 'react';
+
+import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../contexts/UIContext';
@@ -23,7 +24,7 @@ interface NavItemProps {
     onClick?: () => void;
 }
 
-const NavItem = memo<NavItemProps>(({ to, icon, label, onClick }) => (
+const NavItem = React.memo<NavItemProps>(({ to, icon, label, onClick }) => (
     <li>
         <NavLink
             to={to}
@@ -41,8 +42,9 @@ const NavItem = memo<NavItemProps>(({ to, icon, label, onClick }) => (
         </NavLink>
     </li>
 ));
+NavItem.displayName = 'NavItem';
 
-const Sidebar: React.FC = () => {
+const Sidebar = () => {
     const { user } = useAuth();
     const { isSidebarOpen, closeSidebar } = useUI();
     const location = useLocation();

@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React from 'react';
 
 interface StatCardProps {
     title: string;
@@ -15,7 +15,7 @@ const colorClasses = {
     red: 'bg-red-100 text-red-600',
 };
 
-const StatCardComponent: React.FC<StatCardProps> = ({ title, value, icon, color = 'blue' }) => {
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color = 'blue' }) => {
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm flex items-center gap-6">
             <div className={`flex-shrink-0 w-14 h-14 flex items-center justify-center rounded-full ${colorClasses[color]}`}>
@@ -29,4 +29,4 @@ const StatCardComponent: React.FC<StatCardProps> = ({ title, value, icon, color 
     );
 };
 
-export default memo(StatCardComponent);
+export default React.memo(StatCard);
