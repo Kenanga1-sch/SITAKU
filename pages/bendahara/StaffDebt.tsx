@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -9,6 +8,7 @@ import { TeacherDebt } from '../../types';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
 import Modal from '../../components/Modal';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import { AddIcon, DebtIcon, ConfirmationIcon } from '../../components/Icons';
 import FormInput from '../../components/FormInput';
 import FormButton from '../../components/FormButton';
@@ -18,6 +18,9 @@ type DebtInputs = Omit<TeacherDebt, 'id' | 'isPaid' | 'createdAt' | 'recordedByI
 const StaffDebt = () => {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isPayConfirmOpen, setIsPayConfirmOpen] = useState(false);
+    const [selectedDebt, setSelectedDebt] = useState<TeacherDebt | null>(null);
+
     const { register, handleSubmit, reset, formState: { errors } } = useForm<DebtInputs>();
 
     const { data: debts, isLoading } = useQuery<TeacherDebt[]>({
@@ -41,6 +44,7 @@ const StaffDebt = () => {
         mutationFn: (debtId: string) => api.payTeacherDebt(debtId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['teacherDebts'] });
+            closePayConfirmModal();
             toast.success('Utang berhasil dilunasi!');
         },
         onError: (err) => {
@@ -54,6 +58,22 @@ const StaffDebt = () => {
     };
 
     const closeModal = () => setIsModalOpen(false);
+
+    const handlePayClick = (debt: TeacherDebt) => {
+        setSelectedDebt(debt);
+        setIsPayConfirmOpen(true);
+    };
+
+    const closePayConfirmModal = () => {
+        setSelectedDebt(null);
+        setIsPayConfirmOpen(false);
+    };
+    
+    const onConfirmPay = () => {
+        if (selectedDebt) {
+            payMutation.mutate(selectedDebt.id);
+        }
+    };
 
     const onSubmit = (data: DebtInputs) => {
         createMutation.mutate(data);
@@ -99,7 +119,7 @@ const StaffDebt = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             {!debt.isPaid && (
-                                                <button onClick={() => payMutation.mutate(debt.id)} disabled={payMutation.isPending} className="text-emerald-600 hover:text-emerald-900 disabled:opacity-50" title="Tandai Lunas">
+                                                <button onClick={() => handlePayClick(debt)} disabled={payMutation.isPending && selectedDebt?.id === debt.id} className="text-emerald-600 hover:text-emerald-900 disabled:opacity-50" title="Tandai Lunas">
                                                     <ConfirmationIcon />
                                                 </button>
                                             )}
@@ -134,10 +154,21 @@ const StaffDebt = () => {
                     />
                     <div className="flex justify-end gap-3 pt-2">
                         <FormButton type="button" variant="secondary" onClick={closeModal}>Batal</FormButton>
-                        <FormButton type="submit" disabled={createMutation.isPending}>{createMutation.isPending ? 'Menyimpan...' : 'Simpan'}</FormButton>
+                        <FormButton type="submit" disabled={createMutation.isPending}>{createMutation.isPending ? 'Menyimmpan...' : 'Simpan'}</FormButton>
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmationModal
+                isOpen={isPayConfirmOpen}
+                onClose={closePayConfirmModal}
+                onConfirm={onConfirmPay}
+                title="Konfirmasi Pelunasan"
+                message={`Anda yakin ingin menandai utang a.n. "${selectedDebt?.teacherName}" sebesar Rp ${selectedDebt?.amount.toLocaleString('id-ID')} sebagai LUNAS?`}
+                confirmText="Ya, Lunasi"
+                confirmVariant="success"
+                isConfirming={payMutation.isPending}
+            />
         </div>
     );
 };

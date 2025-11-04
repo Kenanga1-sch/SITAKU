@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -88,6 +87,7 @@ const DepositConfirmation: React.FC = () => {
                 message={`Anda yakin ingin mengkonfirmasi setoran sebesar Rp ${selectedSlip?.amount.toLocaleString('id-ID')} dari kelas ${selectedSlip?.class}?`}
                 confirmText="Ya, Konfirmasi"
                 isConfirming={mutation.isPending}
+                confirmVariant="success"
             />
         </div>
     );

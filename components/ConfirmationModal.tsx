@@ -1,6 +1,6 @@
-
 import React from 'react';
 import Modal from './Modal';
+import FormButton from './FormButton';
 
 interface ConfirmationModalProps {
     isOpen: boolean;
@@ -11,6 +11,7 @@ interface ConfirmationModalProps {
     confirmText?: string;
     cancelText?: string;
     isConfirming?: boolean;
+    confirmVariant?: 'primary' | 'danger' | 'secondary' | 'success';
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -22,27 +23,28 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     confirmText = 'Confirm',
     cancelText = 'Cancel',
     isConfirming = false,
+    confirmVariant = 'danger',
 }) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={title}>
             <div>
                 <p className="text-slate-600">{message}</p>
                 <div className="flex justify-end gap-3 mt-6">
-                    <button
+                    <FormButton
                         type="button"
+                        variant="secondary"
                         onClick={onClose}
-                        className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition-colors"
                     >
                         {cancelText}
-                    </button>
-                    <button
+                    </FormButton>
+                    <FormButton
                         type="button"
                         onClick={onConfirm}
                         disabled={isConfirming}
-                        className="px-4 py-2 bg-rose-600 text-white rounded-md hover:bg-rose-700 disabled:bg-rose-400 transition-colors"
+                        variant={confirmVariant}
                     >
                         {isConfirming ? 'Memproses...' : confirmText}
-                    </button>
+                    </FormButton>
                 </div>
             </div>
         </Modal>
