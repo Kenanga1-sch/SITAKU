@@ -1,28 +1,18 @@
+// This file defines the core data structures and types used across the frontend application.
 
 export enum Role {
   ADMIN = 'ADMIN',
   GURU = 'GURU',
   BENDAHARA = 'BENDAHARA',
-  SISWA = 'SISWA'
+  SISWA = 'SISWA',
 }
 
-export enum SavingType {
-    DEPOSIT = 'DEPOSIT',
-    WITHDRAWAL = 'WITHDRAWAL'
+export interface User {
+  id: string;
+  username: string;
+  role: Role;
+  classManaged?: string; // For GURU role
 }
-
-export enum DepositSlipStatus {
-    PENDING = 'PENDING',
-    CONFIRMED = 'CONFIRMED'
-}
-
-export interface PaginatedResponse<T> {
-    data: T[];
-    total: number;
-    page: number;
-    limit: number;
-}
-
 
 export interface Student {
   id: string;
@@ -33,79 +23,87 @@ export interface Student {
   totalDebt: number;
 }
 
-export interface User {
-  id: string;
-  username: string;
-  role: Role;
-  classManaged?: string; // For GURU role
-  studentProfile?: Student; // For SISWA role
+export enum SavingType {
+  DEPOSIT = 'DEPOSIT',
+  WITHDRAWAL = 'WITHDRAWAL',
 }
 
 export interface Saving {
   id: string;
   studentId: string;
-  studentName?: string; // For reports
+  studentName?: string;
   amount: number;
   type: SavingType;
-  notes?: string;
-  createdAt: string; // ISO date string
-  createdByName?: string; // For audit trail
+  notes: string | null;
+  createdAt: string;
+  createdByName?: string;
 }
 
 export interface StudentDebt {
   id: string;
   studentId: string;
+  studentName?: string;
   amount: number;
-  notes?: string;
+  notes: string | null;
   isPaid: boolean;
-  createdAt: string; // ISO date string
-  dueDate?: string; // ISO date string
-  createdByName?: string; // For audit trail
+  createdAt: string;
+  dueDate: string | null;
 }
 
 export interface TeacherDebt {
   id: string;
   teacherName: string;
   amount: number;
-  notes?: string;
+  notes: string | null;
   isPaid: boolean;
-  createdAt: string; // ISO date string
+  createdAt: string;
   recordedById: string;
 }
 
-export interface DailyDepositSlip {
-    id: string;
-    guruId: string;
-    guruName?: string;
-    class: string;
-    amount: number;
-    status: DepositSlipStatus;
-    createdAt: string; // ISO date string
+export interface ClassData {
+  id: string;
+  name: string;
+  waliKelasId: string | null;
+  waliKelasName: string | null;
+  studentCount: number;
 }
 
 export interface DailySummary {
-    guruId: string;
-    transactions: Saving[];
-    submissionStatus: boolean;
+  transactions: Saving[];
+  submissionStatus: boolean;
 }
 
-export interface ClassData {
-    id: string;
-    name: string;
-    waliKelasId?: string | null;
-    waliKelasName?: string | null;
-    studentCount: number;
+export interface DailyDepositSlip {
+  id: string;
+  class: string;
+  amount: number;
+  createdAt: string;
+  teacherName: string;
 }
 
 export interface ChartData {
-    labels: string[];
-    values: number[];
+  labels: string[];
+  values: number[];
 }
 
-export interface GlobalStats {
-    totalBalance: number;
-    totalStudentDebt: number;
-    totalStaffDebt: number;
-    totalSavingsToday: number;
-    totalWithdrawalsToday: number;
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// For student transaction page
+export interface StudentTransactionData {
+  student: Student;
+  savings: PaginatedResponse<Saving>;
+  debts: PaginatedResponse<StudentDebt>;
+}
+
+// For siswa dashboard
+export interface SiswaDashboardData {
+  student: Student;
+  savings: Saving[];
+  debts: StudentDebt[];
 }

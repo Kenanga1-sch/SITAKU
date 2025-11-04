@@ -6,7 +6,6 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 interface AuthContextType {
     user: User | null;
-    // FIX: The User type does not contain a password. Use a specific type for credentials.
     login: (credentials: { username: string; password: string; }) => Promise<void>;
     logout: () => void;
     isAuthenticated: boolean;
@@ -42,7 +41,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         fetchProfile();
     }, [fetchProfile]);
 
-    // FIX: The User type does not contain a password. Use a specific type for credentials.
     const login = async (credentials: { username: string; password: string; }) => {
         const { token, user: loggedInUser } = await api.login(credentials);
         localStorage.setItem('token', token);

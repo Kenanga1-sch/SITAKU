@@ -17,7 +17,7 @@ const FormButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${variants[variant]} ${className}`}
+        className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
         {...props}
       >
         {children}

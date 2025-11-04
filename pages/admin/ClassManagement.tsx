@@ -48,6 +48,7 @@ const ClassManagement = () => {
         queryKey: ['availableTeachers'],
         queryFn: api.getAvailableTeachers,
         enabled: isAssignModalOpen, // Only fetch when the assign modal is open
+        staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     });
 
     const classMutation = useMutation({

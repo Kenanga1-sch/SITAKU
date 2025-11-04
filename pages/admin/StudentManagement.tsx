@@ -54,7 +54,8 @@ const StudentManagement = () => {
             // Fetch all classes for the filter dropdown
             const response = await api.getClasses({ page: 1, limit: 100 }); // Assuming max 100 classes
             return response.data;
-        }
+        },
+        staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     });
 
     const studentMutation = useMutation({

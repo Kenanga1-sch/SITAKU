@@ -5,7 +5,7 @@ interface EmptyStateProps {
     icon?: React.ReactNode;
 }
 
-const EmptyState: React.FC<EmptyStateProps> = ({ message, icon }) => {
+const EmptyState = ({ message, icon }: EmptyStateProps) => {
     return (
         <div className="text-center py-12 px-6 bg-gray-50 rounded-lg">
             {icon && <div className="flex justify-center text-gray-400 mb-4">{icon}</div>}

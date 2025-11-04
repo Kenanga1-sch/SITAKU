@@ -6,7 +6,7 @@ interface BarChartProps {
     data: ChartData;
 }
 
-const BarChart: React.FC<BarChartProps> = ({ data }) => {
+const BarChart = ({ data }: BarChartProps) => {
     if (!data || data.values.length === 0) {
         return <div className="flex items-center justify-center h-full text-slate-500">No data to display.</div>;
     }

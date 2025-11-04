@@ -14,7 +14,7 @@ interface ConfirmationModalProps {
     confirmVariant?: 'primary' | 'danger' | 'secondary' | 'success';
 }
 
-const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
+const ConfirmationModal = ({
     isOpen,
     onClose,
     onConfirm,
@@ -24,7 +24,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     cancelText = 'Cancel',
     isConfirming = false,
     confirmVariant = 'danger',
-}) => {
+}: ConfirmationModalProps) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={title}>
             <div>

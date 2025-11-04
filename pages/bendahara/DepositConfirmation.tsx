@@ -9,7 +9,7 @@ import EmptyState from '../../components/EmptyState';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { ConfirmationIcon } from '../../components/Icons';
 
-const DepositConfirmation: React.FC = () => {
+const DepositConfirmation = () => {
     const queryClient = useQueryClient();
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [selectedSlip, setSelectedSlip] = useState<DailyDepositSlip | null>(null);

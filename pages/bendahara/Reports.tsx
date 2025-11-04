@@ -12,7 +12,7 @@ import FormInput from '../../components/FormInput';
 import FormButton from '../../components/FormButton';
 import TableSkeleton from '../../components/TableSkeleton';
 
-const Reports: React.FC = () => {
+const Reports = () => {
     const [page, setPage] = useState(1);
     const [filters, setFilters] = useState({ startDate: '', endDate: '' });
 
