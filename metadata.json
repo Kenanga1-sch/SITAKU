@@ -1,0 +1,5 @@
+{
+  "name": "SI-TAKU (Sistem Informasi Tabungan dan Keuangan Siswa)",
+  "description": "A distributed digital platform for managing student savings and school finances, with distinct roles for Admins, Teachers, Treasurers, and Students.",
+  "requestFramePermissions": []
+}
