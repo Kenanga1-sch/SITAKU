@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -20,7 +21,7 @@ const Header = () => {
     }
 
     return (
-        <header className="bg-white shadow-sm p-4 flex justify-between items-center z-20">
+        <header className="bg-white shadow-sm p-4 flex justify-between items-center z-20 print:hidden">
             {/* Hamburger menu for mobile */}
             <button onClick={toggleSidebar} className="md:hidden text-slate-600 hover:text-slate-900">
                 <MenuIcon />

@@ -52,7 +52,7 @@ const AppLayout = () => {
             <Sidebar />
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Header />
-                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 lg:p-8">
+                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 lg:p-8 print:p-0 print:overflow-visible">
                     <AppRoutes />
                 </main>
             </div>

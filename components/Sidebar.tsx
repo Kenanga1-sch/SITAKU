@@ -118,15 +118,15 @@ const Sidebar = () => {
     return (
         <>
             {/* Mobile Sidebar */}
-            <div className={`fixed inset-0 z-40 transform md:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
+            <div className={`fixed inset-0 z-40 transform md:hidden print:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
                 <div className="w-64 h-full">
                     <SidebarContent />
                 </div>
             </div>
-            {isSidebarOpen && <div onClick={closeSidebar} className="fixed inset-0 bg-black opacity-50 z-30 md:hidden"></div>}
+            {isSidebarOpen && <div onClick={closeSidebar} className="fixed inset-0 bg-black opacity-50 z-30 md:hidden print:hidden"></div>}
 
             {/* Desktop Sidebar */}
-            <aside className="hidden md:block w-64 flex-shrink-0">
+            <aside className="hidden md:block w-64 flex-shrink-0 print:hidden">
                  <SidebarContent />
             </aside>
         </>

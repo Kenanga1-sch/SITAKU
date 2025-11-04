@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 
 interface PaginationProps {
@@ -31,7 +32,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalItems, itemsP
     const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
     return (
-        <div className="flex items-center justify-between mt-6 px-4 py-3 sm:px-6">
+        <div className="flex items-center justify-between mt-6 px-4 py-3 sm:px-6 print:hidden">
             <div className="flex-1 flex justify-between sm:hidden">
                 <button onClick={handlePrevious} disabled={currentPage === 1} className="relative inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50">
                     Previous
