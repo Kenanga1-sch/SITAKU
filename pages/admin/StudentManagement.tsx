@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -13,6 +14,8 @@ import FormInput from '../../components/FormInput';
 import FormSelect from '../../components/FormSelect';
 import FormButton from '../../components/FormButton';
 import TableSkeleton from '../../components/TableSkeleton';
+import Pagination from '../../components/Pagination';
+import { useDebounce } from '../../hooks/useDebounce';
 
 type StudentInputs = Omit<Student, 'id' | 'balance' | 'totalDebt'> & { id?: string };
 
@@ -26,17 +29,32 @@ const StudentManagement = () => {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
     const [importErrors, setImportErrors] = useState<string[]>([]);
+    
+    // State for pagination and search
+    const [page, setPage] = useState(1);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [classFilter, setClassFilter] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
     const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<StudentInputs>();
 
-    const { data: students, isLoading: isLoadingStudents } = useQuery<Student[]>({
-        queryKey: ['students'],
-        queryFn: api.getAllStudents,
+    const { data: studentsData, isLoading: isLoadingStudents } = useQuery({
+        queryKey: ['students', page, debouncedSearchTerm, classFilter],
+        queryFn: () => api.getStudents({ page, limit: 10, search: debouncedSearchTerm, classFilter }),
+        placeholderData: (previousData) => previousData,
     });
     
+     useEffect(() => {
+        setPage(1);
+    }, [debouncedSearchTerm, classFilter]);
+    
     const { data: classes, isLoading: isLoadingClasses } = useQuery<ClassData[]>({
-        queryKey: ['classes'],
-        queryFn: api.getAllClasses,
+        queryKey: ['allClasses'], // Using a different key to not conflict with paginated one
+        queryFn: async () => {
+            // Fetch all classes for the filter dropdown
+            const response = await api.getClasses({ page: 1, limit: 100 }); // Assuming max 100 classes
+            return response.data;
+        }
     });
 
     const studentMutation = useMutation({
@@ -126,17 +144,9 @@ const StudentManagement = () => {
         }
     };
     
-    // --- Import Handlers ---
-    const handleOpenImportModal = () => {
-        setImportFile(null);
-        setImportErrors([]);
-        setIsImportModalOpen(true);
-    };
-
-    const handleCloseImportModal = () => {
-        setIsImportModalOpen(false);
-    };
-
+    const handleOpenImportModal = () => setIsImportModalOpen(true);
+    const handleCloseImportModal = () => setIsImportModalOpen(false);
+    
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             setImportFile(e.target.files[0]);
@@ -156,40 +166,28 @@ const StudentManagement = () => {
     };
     
     const handleImportSubmit = () => {
-        if (!importFile) {
-            toast.error("Silakan pilih file CSV terlebih dahulu.");
-            return;
-        }
-
+        if (!importFile) { toast.error("Silakan pilih file CSV."); return; }
         const reader = new FileReader();
         reader.onload = async (e) => {
-            const text = e.target?.result;
-            if (typeof text !== 'string') {
-                toast.error("Tidak dapat membaca file.");
-                return;
-            }
-
+            const text = e.target?.result as string;
             const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
-            if (lines.length < 2) {
-                toast.error("File CSV kosong atau hanya berisi header.");
-                return;
-            }
-
+            if (lines.length < 2) { toast.error("File CSV kosong."); return; }
             const header = lines[0].split(',').map(h => h.trim().toLowerCase());
             if (header[0] !== 'nis' || header[1] !== 'name' || header[2] !== 'class') {
                 toast.error("Header CSV tidak valid. Harusnya: nis,name,class");
                 return;
             }
-
             const studentsToImport = lines.slice(1).map(line => {
                 const [nis, name, studentClass] = line.split(',').map(field => field.trim());
                 return { nis, name, class: studentClass };
             });
-
             importMutation.mutate(studentsToImport);
         };
         reader.readAsText(importFile);
     };
+
+    const students = studentsData?.data ?? [];
+    const totalStudents = studentsData?.total ?? 0;
 
     return (
         <div>
@@ -198,19 +196,41 @@ const StudentManagement = () => {
                 <div className="flex items-center gap-2">
                     <FormButton variant="secondary" onClick={handleOpenImportModal}>
                         <UploadIcon />
-                        <span className="hidden sm:inline">Import Siswa</span>
+                        <span className="hidden sm:inline">Import</span>
                     </FormButton>
                     <FormButton onClick={handleAdd}>
                         <AddIcon />
-                        <span className="hidden sm:inline">Tambah Siswa</span>
+                        <span className="hidden sm:inline">Tambah</span>
                     </FormButton>
                 </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                 <FormInput 
+                    id="search"
+                    label=""
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Cari nama atau NIS..."
+                    className="md:col-span-2"
+                />
+                 <FormSelect
+                    id="classFilter"
+                    label=""
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value)}
+                 >
+                    <option value="">Semua Kelas</option>
+                    {isLoadingClasses ? <option>Memuat...</option> : classes?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                 </FormSelect>
+            </div>
+
+
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
-                {isLoadingStudents ? (
+                {isLoadingStudents && !studentsData ? (
                     <TableSkeleton cols={5} />
                 ) : !students || students.length === 0 ? (
-                    <EmptyState message="Belum ada data siswa." icon={<DataMasterIcon size={12}/>} />
+                    <EmptyState message="Tidak ada data siswa yang cocok." icon={<DataMasterIcon size={12}/>} />
                 ) : (
                     <>
                     {/* Desktop Table */}
@@ -266,31 +286,22 @@ const StudentManagement = () => {
                     </div>
                     </>
                 )}
+                 <Pagination
+                    currentPage={page}
+                    totalItems={totalStudents}
+                    itemsPerPage={10}
+                    onPageChange={setPage}
+                />
             </div>
 
             <Modal isOpen={isModalOpen} onClose={closeModal} title={selectedStudent ? 'Edit Siswa' : 'Tambah Siswa'}>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                    <FormInput
-                        id="nis"
-                        label="NIS"
-                        {...register('nis', { required: 'NIS tidak boleh kosong' })}
-                        error={errors.nis?.message}
-                    />
-                    <FormInput
-                        id="name"
-                        label="Nama Lengkap"
-                        {...register('name', { required: 'Nama tidak boleh kosong' })}
-                        error={errors.name?.message}
-                    />
-                     <FormSelect
-                        id="class"
-                        label="Kelas"
-                        {...register('class', { required: 'Kelas harus dipilih' })}
-                        error={errors.class?.message}
-                     >
+                    <FormInput id="nis" label="NIS" {...register('nis', { required: 'NIS tidak boleh kosong' })} error={errors.nis?.message}/>
+                    <FormInput id="name" label="Nama Lengkap" {...register('name', { required: 'Nama tidak boleh kosong' })} error={errors.name?.message}/>
+                    <FormSelect id="class" label="Kelas" {...register('class', { required: 'Kelas harus dipilih' })} error={errors.class?.message}>
                         <option value="">-- Pilih Kelas --</option>
                         {isLoadingClasses ? <option>Memuat...</option> : classes?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                     </FormSelect>
+                    </FormSelect>
                     <div className="flex justify-end gap-3 pt-2">
                         <FormButton type="button" variant="secondary" onClick={closeModal}>Batal</FormButton>
                         <FormButton type="submit" disabled={studentMutation.isPending}>{studentMutation.isPending ? 'Menyimpan...' : 'Simpan'}</FormButton>
@@ -308,40 +319,15 @@ const StudentManagement = () => {
                 isConfirming={deleteMutation.isPending}
             />
 
-             <Modal isOpen={isImportModalOpen} onClose={handleCloseImportModal} title="Import Data Siswa">
+            <Modal isOpen={isImportModalOpen} onClose={handleCloseImportModal} title="Import Data Siswa">
                 <div className="space-y-4">
                     <div>
                         <h4 className="font-semibold text-slate-700">Petunjuk Format</h4>
-                        <p className="text-sm text-slate-500 mt-1">
-                            Upload file CSV dengan header: <strong>nis,name,class</strong>.
-                        </p>
-                        <p className="text-sm text-slate-500 mt-1">
-                            Pastikan nama kelas sesuai dengan yang ada di Manajemen Kelas.
-                        </p>
-                        <button onClick={downloadTemplate} className="text-sm text-indigo-600 hover:underline mt-2">
-                            Unduh File Template
-                        </button>
+                        <p className="text-sm text-slate-500 mt-1">Upload file CSV dengan header: <strong>nis,name,class</strong>.</p>
+                        <button onClick={downloadTemplate} className="text-sm text-indigo-600 hover:underline mt-2">Unduh File Template</button>
                     </div>
-                    
-                    <div>
-                        <label htmlFor="csv-upload" className="block text-sm font-medium text-slate-700">
-                            Pilih File CSV
-                        </label>
-                        <input
-                            id="csv-upload"
-                            type="file"
-                            accept=".csv"
-                            onChange={handleFileChange}
-                            className="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                        />
-                    </div>
-
-                    {importFile && (
-                        <div className="text-sm text-slate-600 bg-slate-100 p-2 rounded-md">
-                            File dipilih: <strong>{importFile.name}</strong>
-                        </div>
-                    )}
-                    
+                    <FormInput id="csv-upload" label="Pilih File CSV" type="file" accept=".csv" onChange={handleFileChange} />
+                    {importFile && <div className="text-sm text-slate-600 bg-slate-100 p-2 rounded-md">File: <strong>{importFile.name}</strong></div>}
                     {importErrors.length > 0 && (
                         <div className="mt-4 p-3 bg-rose-50 rounded-md max-h-40 overflow-y-auto">
                             <h5 className="font-semibold text-rose-700">Detail Kesalahan:</h5>
@@ -350,7 +336,6 @@ const StudentManagement = () => {
                             </ul>
                         </div>
                     )}
-
                     <div className="flex justify-end gap-3 pt-4">
                         <FormButton type="button" variant="secondary" onClick={handleCloseImportModal}>Batal</FormButton>
                         <FormButton type="button" onClick={handleImportSubmit} disabled={!importFile || importMutation.isPending}>

@@ -14,7 +14,8 @@ import {
     ConfirmationIcon,
     DebtIcon,
     AcademicCapIcon,
-    CloseIcon
+    CloseIcon,
+    DocumentReportIcon
 } from './Icons';
 
 interface NavItemProps {
@@ -73,6 +74,7 @@ const Sidebar = () => {
         { to: '/bendahara/dashboard', icon: <DashboardIcon />, label: 'Dashboard' },
         { to: '/bendahara/confirmation', icon: <ConfirmationIcon />, label: 'Konfirmasi Setoran' },
         { to: '/bendahara/staff-debt', icon: <DebtIcon />, label: 'Utang Staff' },
+        { to: '/bendahara/reports', icon: <DocumentReportIcon />, label: 'Laporan' },
     ];
     
     const siswaNav = [

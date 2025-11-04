@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -9,11 +9,13 @@ import { User, Role } from '../../types';
 import EmptyState from '../../components/EmptyState';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
-import { AddIcon, EditIcon, DeleteIcon, UserGroupIcon, UserCircleIcon } from '../../components/Icons';
+import { AddIcon, EditIcon, DeleteIcon, UserGroupIcon } from '../../components/Icons';
 import FormInput from '../../components/FormInput';
 import FormSelect from '../../components/FormSelect';
 import FormButton from '../../components/FormButton';
 import TableSkeleton from '../../components/TableSkeleton';
+import Pagination from '../../components/Pagination';
+import { useDebounce } from '../../hooks/useDebounce';
 
 type UserInputs = Omit<User, 'id'> & { id?: string; password?: string };
 
@@ -22,13 +24,21 @@ const UserManagement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [page, setPage] = useState(1);
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
     const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<UserInputs>();
 
-    const { data: users, isLoading } = useQuery<User[]>({
-        queryKey: ['users'],
-        queryFn: api.getAllUsers,
+    const { data: usersData, isLoading } = useQuery({
+        queryKey: ['users', page, debouncedSearchTerm],
+        queryFn: () => api.getUsers({ page, limit: 10, search: debouncedSearchTerm }),
+        placeholderData: (previousData) => previousData,
     });
+    
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearchTerm]);
 
     const userMutation = useMutation({
         mutationFn: (data: UserInputs) => {
@@ -104,20 +114,34 @@ const UserManagement = () => {
         return role.charAt(0) + role.slice(1).toLowerCase();
     }
 
+    const users = usersData?.data ?? [];
+    const totalUsers = usersData?.total ?? 0;
+
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                 <h1 className="text-3xl font-bold text-slate-800">Manajemen Pengguna</h1>
                 <FormButton onClick={handleAdd}>
                     <AddIcon />
                     <span className="hidden sm:inline">Tambah Pengguna</span>
                 </FormButton>
             </div>
+
+            <div className="mb-4 max-w-sm">
+                 <FormInput 
+                    id="search"
+                    label=""
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Cari berdasarkan username..."
+                />
+            </div>
+
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
-                {isLoading ? (
+                {isLoading && !usersData ? (
                     <TableSkeleton cols={3} />
                 ) : !users || users.length === 0 ? (
-                    <EmptyState message="Belum ada data pengguna." icon={<UserGroupIcon size={12}/>} />
+                    <EmptyState message="Tidak ada pengguna yang cocok dengan pencarian Anda." icon={<UserGroupIcon size={12}/>} />
                 ) : (
                     <>
                     {/* Desktop Table */}
@@ -163,6 +187,12 @@ const UserManagement = () => {
                     </div>
                     </>
                 )}
+                <Pagination
+                    currentPage={page}
+                    totalItems={totalUsers}
+                    itemsPerPage={10}
+                    onPageChange={setPage}
+                />
             </div>
 
             <Modal isOpen={isModalOpen} onClose={closeModal} title={selectedUser ? 'Edit Pengguna' : 'Tambah Pengguna'}>
@@ -182,7 +212,6 @@ const UserManagement = () => {
                         <option value={Role.ADMIN}>Admin</option>
                         <option value={Role.GURU}>Guru</option>
                         <option value={Role.BENDAHARA}>Bendahara</option>
-                        <option value={Role.SISWA}>Siswa</option>
                     </FormSelect>
                      <FormInput
                         id="password"

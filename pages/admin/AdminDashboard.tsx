@@ -5,17 +5,23 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import StatCard from '../../components/StatCard';
-import { UserGroupIcon, UserCircleIcon, DataMasterIcon } from '../../components/Icons';
+import BarChart from '../../components/BarChart';
+import { UserGroupIcon, UserCircleIcon, DataMasterIcon, ChartBarIcon } from '../../components/Icons';
 import { useAuth } from '../../hooks/useAuth';
 
-const AdminDashboard: React.FC = () => {
+const AdminDashboard = () => {
     const { user } = useAuth();
-    const { data: stats, isLoading } = useQuery({
+    const { data: stats, isLoading: isLoadingStats } = useQuery({
         queryKey: ['adminStats'],
         queryFn: api.getAdminStats
     });
 
-    if (isLoading) {
+    const { data: userRoleData, isLoading: isLoadingChart } = useQuery({
+        queryKey: ['userRoleChart'],
+        queryFn: api.getUserRoleChartData
+    });
+
+    if (isLoadingStats) {
         return <div className="flex justify-center mt-20"><LoadingSpinner /></div>;
     }
 
@@ -42,9 +48,16 @@ const AdminDashboard: React.FC = () => {
                     color="purple"
                 />
             </div>
-            <div className="mt-8 bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-bold text-slate-800">Selamat Datang, {user?.username}!</h2>
-                <p className="text-slate-600 mt-2">Gunakan menu di samping untuk mengelola pengguna, kelas, dan data master lainnya.</p>
+            <div className="mt-8 grid grid-cols-1 gap-6">
+                 <div className="bg-white p-6 rounded-lg shadow-sm">
+                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <ChartBarIcon />
+                        Distribusi Peran Pengguna
+                    </h2>
+                    <div className="mt-4 h-64">
+                        {isLoadingChart ? <LoadingSpinner/> : userRoleData ? <BarChart data={userRoleData} /> : <p>Data tidak tersedia.</p>}
+                    </div>
+                </div>
             </div>
         </div>
     );

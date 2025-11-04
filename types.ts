@@ -16,6 +16,14 @@ export enum DepositSlipStatus {
     CONFIRMED = 'CONFIRMED'
 }
 
+export interface PaginatedResponse<T> {
+    data: T[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+
 export interface Student {
   id: string;
   nis: string;
@@ -36,10 +44,12 @@ export interface User {
 export interface Saving {
   id: string;
   studentId: string;
+  studentName?: string; // For reports
   amount: number;
   type: SavingType;
   notes?: string;
   createdAt: string; // ISO date string
+  createdByName?: string; // For audit trail
 }
 
 export interface StudentDebt {
@@ -50,6 +60,7 @@ export interface StudentDebt {
   isPaid: boolean;
   createdAt: string; // ISO date string
   dueDate?: string; // ISO date string
+  createdByName?: string; // For audit trail
 }
 
 export interface TeacherDebt {
@@ -65,6 +76,7 @@ export interface TeacherDebt {
 export interface DailyDepositSlip {
     id: string;
     guruId: string;
+    guruName?: string;
     class: string;
     amount: number;
     status: DepositSlipStatus;
@@ -83,4 +95,17 @@ export interface ClassData {
     waliKelasId?: string | null;
     waliKelasName?: string | null;
     studentCount: number;
+}
+
+export interface ChartData {
+    labels: string[];
+    values: number[];
+}
+
+export interface GlobalStats {
+    totalBalance: number;
+    totalStudentDebt: number;
+    totalStaffDebt: number;
+    totalSavingsToday: number;
+    totalWithdrawalsToday: number;
 }

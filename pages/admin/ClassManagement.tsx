@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -14,6 +15,7 @@ import FormButton from '../../components/FormButton';
 import FormInput from '../../components/FormInput';
 import FormSelect from '../../components/FormSelect';
 import TableSkeleton from '../../components/TableSkeleton';
+import Pagination from '../../components/Pagination';
 
 type ClassInputs = {
     id?: string;
@@ -31,13 +33,15 @@ const ClassManagement = () => {
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [selectedClass, setSelectedClass] = useState<ClassData | null>(null);
+    const [page, setPage] = useState(1);
     
     const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<ClassInputs>();
     const { register: registerAssign, handleSubmit: handleSubmitAssign, reset: resetAssign, setValue: setValueAssign } = useForm<AssignTeacherInputs>();
 
-    const { data: classes, isLoading: isLoadingClasses } = useQuery<ClassData[]>({
-        queryKey: ['classes'],
-        queryFn: api.getAllClasses,
+    const { data: classesData, isLoading: isLoadingClasses } = useQuery({
+        queryKey: ['classes', page],
+        queryFn: () => api.getClasses({ page, limit: 10 }),
+        placeholderData: (previousData) => previousData,
     });
 
     const { data: availableTeachers, isLoading: isLoadingTeachers } = useQuery<User[]>({
@@ -139,6 +143,8 @@ const ClassManagement = () => {
         }
     };
 
+    const classes = classesData?.data ?? [];
+    const totalClasses = classesData?.total ?? 0;
 
     return (
         <div>
@@ -150,37 +156,39 @@ const ClassManagement = () => {
                 </FormButton>
             </div>
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
-                {isLoadingClasses ? (
+                {isLoadingClasses && !classesData ? (
                     <TableSkeleton cols={4} />
                 ) : !classes || classes.length === 0 ? (
                     <EmptyState message="Belum ada data kelas." icon={<DataMasterIcon size={12} />} />
                 ) : (
                     <>
                         {/* Table for Desktop */}
-                        <table className="min-w-full divide-y divide-slate-200 hidden md:table">
-                            <thead className="bg-slate-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Nama Kelas</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Wali Kelas</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Jumlah Siswa</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-slate-200">
-                                {classes.map((cls) => (
-                                    <tr key={cls.id} className="hover:bg-slate-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{cls.name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{cls.waliKelasName || <span className="italic text-slate-400">Belum diatur</span>}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{cls.studentCount}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
-                                            <button onClick={() => handleAssign(cls)} className="text-emerald-600 hover:text-emerald-900" title="Atur Wali Kelas"><UserCircleIcon /></button>
-                                            <button onClick={() => handleEdit(cls)} className="text-indigo-600 hover:text-indigo-900" title="Edit Kelas"><EditIcon /></button>
-                                            <button onClick={() => handleDelete(cls)} className="text-rose-600 hover:text-rose-900" title="Hapus Kelas"><DeleteIcon /></button>
-                                        </td>
+                        <div className="overflow-x-auto hidden md:block">
+                            <table className="min-w-full divide-y divide-slate-200">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Nama Kelas</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Wali Kelas</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Jumlah Siswa</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Aksi</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-slate-200">
+                                    {classes.map((cls) => (
+                                        <tr key={cls.id} className="hover:bg-slate-50">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{cls.name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{cls.waliKelasName || <span className="italic text-slate-400">Belum diatur</span>}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{cls.studentCount}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
+                                                <button onClick={() => handleAssign(cls)} className="text-emerald-600 hover:text-emerald-900" title="Atur Wali Kelas"><UserCircleIcon /></button>
+                                                <button onClick={() => handleEdit(cls)} className="text-indigo-600 hover:text-indigo-900" title="Edit Kelas"><EditIcon /></button>
+                                                <button onClick={() => handleDelete(cls)} className="text-rose-600 hover:text-rose-900" title="Hapus Kelas"><DeleteIcon /></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
                         {/* Cards for Mobile */}
                         <div className="md:hidden space-y-4">
@@ -209,6 +217,12 @@ const ClassManagement = () => {
                         </div>
                     </>
                 )}
+                <Pagination
+                    currentPage={page}
+                    totalItems={totalClasses}
+                    itemsPerPage={10}
+                    onPageChange={setPage}
+                />
             </div>
 
              {/* Modals */}

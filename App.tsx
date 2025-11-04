@@ -20,6 +20,7 @@ import DailyDeposit from './pages/guru/DailyDeposit';
 import BendaharaDashboard from './pages/bendahara/BendaharaDashboard';
 import DepositConfirmation from './pages/bendahara/DepositConfirmation';
 import StaffDebt from './pages/bendahara/StaffDebt';
+import Reports from './pages/bendahara/Reports';
 import SiswaDashboard from './pages/siswa/SiswaDashboard';
 
 const App = () => {
@@ -97,6 +98,7 @@ const AppRoutes = () => {
                 <Route path="dashboard" element={<BendaharaDashboard />} />
                 <Route path="confirmation" element={<DepositConfirmation />} />
                 <Route path="staff-debt" element={<StaffDebt />} />
+                <Route path="reports" element={<Reports />} />
             </Route>
             
             {/* Siswa Routes */}

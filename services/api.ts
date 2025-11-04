@@ -11,6 +11,9 @@ import {
     TeacherDebt,
     Saving,
     StudentDebt,
+    PaginatedResponse,
+    ChartData,
+    GlobalStats,
 } from '../types';
 
 // =================================================================
@@ -39,12 +42,12 @@ let classes: ClassData[] = [
 ];
 
 let savings: Saving[] = [
-    {id: 'saving-1', studentId: 'student-1', amount: 50000, type: SavingType.DEPOSIT, createdAt: new Date(Date.now() - 86400000 * 2).toISOString()},
-    {id: 'saving-2', studentId: 'student-1', amount: 100000, type: SavingType.DEPOSIT, createdAt: new Date(Date.now() - 86400000).toISOString()},
+    {id: 'saving-1', studentId: 'student-1', studentName: 'Joko Susilo', amount: 50000, type: SavingType.DEPOSIT, createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), createdByName: 'guru_a'},
+    {id: 'saving-2', studentId: 'student-1', studentName: 'Joko Susilo', amount: 100000, type: SavingType.DEPOSIT, createdAt: new Date(Date.now() - 86400000).toISOString(), createdByName: 'guru_a'},
 ];
 
 let studentDebts: StudentDebt[] = [
-    {id: 'sdebt-1', studentId: 'student-2', amount: 10000, isPaid: false, notes: 'Beli buku', createdAt: new Date().toISOString()}
+    {id: 'sdebt-1', studentId: 'student-2', amount: 10000, isPaid: false, notes: 'Beli buku', createdAt: new Date().toISOString(), createdByName: 'guru_a'}
 ];
 
 let teacherDebts: TeacherDebt[] = [
@@ -53,7 +56,7 @@ let teacherDebts: TeacherDebt[] = [
 ];
 
 let depositSlips: DailyDepositSlip[] = [
-    {id: 'slip-1', guruId: 'user-3', class: '10-B', amount: 75000, status: DepositSlipStatus.PENDING, createdAt: new Date().toISOString()},
+    {id: 'slip-1', guruId: 'user-3', guruName: 'guru_b', class: '10-B', amount: 75000, status: DepositSlipStatus.PENDING, createdAt: new Date().toISOString()},
 ];
 
 // Helper to simulate network delay
@@ -66,6 +69,8 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // Simple mock token management
 const FAKE_TOKEN_PREFIX = 'fake-token-';
 let loggedInUserId: string | null = null;
+
+const getCurrentUser = () => users.find(u => u.id === loggedInUserId);
 
 const apiService = {
     // --- Auth ---
@@ -98,16 +103,37 @@ const apiService = {
     getAdminStats: async () => {
         await sleep(500);
         return {
-            totalUsers: users.length,
+            totalUsers: users.filter(u => u.role !== Role.SISWA).length,
             totalStudents: students.length,
             totalClasses: classes.length,
         };
     },
+    getUserRoleChartData: async (): Promise<ChartData> => {
+        await sleep(800);
+        const roles = users.reduce((acc, user) => {
+            if(user.role !== Role.SISWA) {
+                acc[user.role] = (acc[user.role] || 0) + 1;
+            }
+            return acc;
+        }, {} as Record<Role, number>);
+        
+        return {
+            labels: Object.keys(roles),
+            values: Object.values(roles),
+        }
+    },
 
-    // --- User Management ---
-    getAllUsers: async () => {
+    // --- User Management (Paginated) ---
+    getUsers: async ({ page = 1, limit = 10, search = '' }): Promise<PaginatedResponse<User>> => {
         await sleep(500);
-        return users.filter(u => u.role !== Role.SISWA); // Don't manage student users directly here
+        const filteredUsers = users
+            .filter(u => u.role !== Role.SISWA)
+            .filter(u => u.username.toLowerCase().includes(search.toLowerCase()));
+        
+        const total = filteredUsers.length;
+        const data = filteredUsers.slice((page - 1) * limit, page * limit);
+        
+        return { data, total, page, limit };
     },
     createUser: async (userData: any) => {
         await sleep(500);
@@ -133,12 +159,12 @@ const apiService = {
         return { message: 'User berhasil dihapus' };
     },
 
-    // --- Class Management ---
-    getAllClasses: async () => {
+    // --- Class Management (Paginated) ---
+    getClasses: async ({ page = 1, limit = 10 }): Promise<PaginatedResponse<ClassData>> => {
         await sleep(500);
-        // OPTIMIZATION: Return the class data directly. 
-        // studentCount is now managed by mutation functions.
-        return classes;
+        const total = classes.length;
+        const data = classes.slice((page - 1) * limit, page * limit);
+        return { data, total, page, limit };
     },
     createClass: async (classData: { name: string }) => {
         await sleep(500);
@@ -158,6 +184,9 @@ const apiService = {
     },
     deleteClass: async (id: string) => {
         await sleep(500);
+        if(students.some(s => s.class === classes.find(c => c.id === id)?.name)) {
+            throw new Error('Tidak dapat menghapus kelas yang masih memiliki siswa.');
+        }
         classes = classes.filter(c => c.id !== id);
         return { message: 'Kelas berhasil dihapus' };
     },
@@ -171,7 +200,6 @@ const apiService = {
         const classToUpdate = classes.find(c => c.id === classId);
         if (!classToUpdate) throw new Error('Kelas tidak ditemukan');
         
-        // Unassign from old teacher user object
         const oldWali = users.find(u => u.id === classToUpdate.waliKelasId);
         if(oldWali) oldWali.classManaged = undefined;
 
@@ -182,14 +210,10 @@ const apiService = {
             const newWali = users.find(u => u.id === waliKelasId);
             if (!newWali || newWali.role !== Role.GURU) throw new Error('Guru tidak ditemukan');
             
-            // Check if teacher is already assigned to another class
-            if(classes.some(c => c.waliKelasId === waliKelasId)) {
-                // In this mock, we allow re-assignment by clearing old one
-                const oldClass = classes.find(c => c.waliKelasId === waliKelasId);
-                if(oldClass) {
-                    oldClass.waliKelasId = null;
-                    oldClass.waliKelasName = null;
-                }
+            const oldClass = classes.find(c => c.waliKelasId === waliKelasId);
+            if(oldClass) {
+                oldClass.waliKelasId = null;
+                oldClass.waliKelasName = null;
             }
 
             classToUpdate.waliKelasId = newWali.id;
@@ -199,10 +223,24 @@ const apiService = {
         return classToUpdate;
     },
     
-    // --- Student Management ---
-    getAllStudents: async () => {
+    // --- Student Management (Paginated) ---
+    getStudents: async ({ page = 1, limit = 10, search = '', classFilter = '' }): Promise<PaginatedResponse<Student>> => {
         await sleep(600);
-        return students;
+        let filteredStudents = students;
+
+        if (search) {
+            filteredStudents = filteredStudents.filter(s => 
+                s.name.toLowerCase().includes(search.toLowerCase()) || 
+                s.nis.includes(search)
+            );
+        }
+        if (classFilter) {
+            filteredStudents = filteredStudents.filter(s => s.class === classFilter);
+        }
+
+        const total = filteredStudents.length;
+        const data = filteredStudents.slice((page - 1) * limit, page * limit);
+        return { data, total, page, limit };
     },
     createStudent: async (studentData: any) => {
         await sleep(500);
@@ -210,7 +248,6 @@ const apiService = {
         const newStudent: Student = { ...studentData, id: `student-${Date.now()}`, balance: 0, totalDebt: 0 };
         students.push(newStudent);
         
-        // OPTIMIZATION: Update student count for data integrity
         const studentClass = classes.find(c => c.name === newStudent.class);
         if (studentClass) {
             studentClass.studentCount++;
@@ -223,7 +260,6 @@ const apiService = {
         const studentIndex = students.findIndex(s => s.id === id);
         if (studentIndex > -1) {
             const oldStudent = students[studentIndex];
-            // OPTIMIZATION: Update student count if class changes
             if (oldStudent.class !== studentData.class) {
                 const oldClass = classes.find(c => c.name === oldStudent.class);
                 if(oldClass) oldClass.studentCount--;
@@ -239,7 +275,6 @@ const apiService = {
         await sleep(500);
         const studentToDelete = students.find(s => s.id === id);
         if (studentToDelete) {
-             // OPTIMIZATION: Update student count for data integrity
             const studentClass = classes.find(c => c.name === studentToDelete.class);
             if (studentClass) {
                 studentClass.studentCount--;
@@ -265,7 +300,6 @@ const apiService = {
                 errors.push(`Baris ${i+1}: Kelas "${s.class}" tidak ditemukan.`);
             } else {
                 students.push({ ...s, id: `student-${Date.now()}-${i}`, balance: 0, totalDebt: 0 });
-                // OPTIMIZATION: Update student count for data integrity
                 const studentClass = classes.find(c => c.name === s.class);
                 if (studentClass) studentClass.studentCount++;
                 successCount++;
@@ -286,17 +320,29 @@ const apiService = {
         if(data.type === SavingType.WITHDRAWAL && student.balance < data.amount) {
             throw new Error('Saldo tidak mencukupi.');
         }
-        const newSaving: Saving = {...data, id: `saving-${Date.now()}`, createdAt: new Date().toISOString() };
+        const currentUser = getCurrentUser();
+        const newSaving: Saving = {
+            ...data,
+            id: `saving-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            studentName: student.name,
+            createdByName: currentUser?.username ?? 'System'
+        };
         savings.push(newSaving);
         student.balance += (data.type === SavingType.DEPOSIT ? data.amount : -data.amount);
-        return newSaving;
+        return student; // Return updated student data
+    },
+    getStudentTransactionHistory: async (studentId: string) => {
+        await sleep(400);
+        const studentSavings = savings.filter(s => s.studentId === studentId);
+        // Can be expanded to include debt payments later
+        return studentSavings.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
     },
     getGuruDailySummary: async (): Promise<DailySummary> => {
         await sleep(500);
-        const guru = users.find(u => u.id === loggedInUserId);
+        const guru = getCurrentUser();
         if (!guru || guru.role !== Role.GURU) throw new Error('Akses ditolak');
         
-        // Find today's transactions for students in the guru's class
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -317,13 +363,11 @@ const apiService = {
     },
     submitDailyDeposit: async () => {
         await sleep(800);
-        const guru = users.find(u => u.id === loggedInUserId);
+        const guru = getCurrentUser();
         if (!guru || guru.role !== Role.GURU || !guru.classManaged) throw new Error('Akses ditolak');
 
         const summary = await apiService.getGuruDailySummary();
-        const totalDeposit = summary.transactions.filter(tx => tx.type === SavingType.DEPOSIT).reduce((acc, tx) => acc + tx.amount, 0);
-        const totalWithdrawal = summary.transactions.filter(tx => tx.type === SavingType.WITHDRAWAL).reduce((acc, tx) => acc + tx.amount, 0);
-        const netAmount = totalDeposit - totalWithdrawal;
+        const netAmount = summary.transactions.reduce((acc, tx) => acc + (tx.type === SavingType.DEPOSIT ? tx.amount : -tx.amount), 0);
         
         if (netAmount <= 0) throw new Error('Tidak ada dana untuk disetor.');
         if (summary.submissionStatus) throw new Error('Setoran hari ini sudah diajukan.');
@@ -331,6 +375,7 @@ const apiService = {
         const newSlip: DailyDepositSlip = {
             id: `slip-${Date.now()}`,
             guruId: guru.id,
+            guruName: guru.username,
             class: guru.classManaged,
             amount: netAmount,
             status: DepositSlipStatus.PENDING,
@@ -379,6 +424,43 @@ const apiService = {
             return debt;
         }
         throw new Error('Utang tidak ditemukan.');
+    },
+    getGlobalStats: async (): Promise<GlobalStats> => {
+        await sleep(700);
+        return {
+            totalBalance: students.reduce((acc, s) => acc + s.balance, 0),
+            totalStudentDebt: studentDebts.filter(d => !d.isPaid).reduce((acc, d) => acc + d.amount, 0),
+            totalStaffDebt: teacherDebts.filter(d => !d.isPaid).reduce((acc, d) => acc + d.amount, 0),
+            totalSavingsToday: 0, // Placeholder
+            totalWithdrawalsToday: 0, // Placeholder
+        };
+    },
+    getFinancialSummaryChartData: async (): Promise<ChartData> => {
+        await sleep(1000);
+        const stats = await apiService.getGlobalStats();
+        return {
+            labels: ['Total Saldo Siswa', 'Total Utang Siswa', 'Total Utang Staff'],
+            values: [stats.totalBalance, stats.totalStudentDebt, stats.totalStaffDebt],
+        };
+    },
+     getAllSavings: async ({ page = 1, limit = 10, startDate = '', endDate = '' }): Promise<PaginatedResponse<Saving>> => {
+        await sleep(600);
+        let filteredSavings = savings;
+
+        if (startDate) {
+            filteredSavings = filteredSavings.filter(s => new Date(s.createdAt) >= new Date(startDate));
+        }
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999); // Include whole day
+            filteredSavings = filteredSavings.filter(s => new Date(s.createdAt) <= end);
+        }
+
+        const sorted = filteredSavings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const total = sorted.length;
+        const data = sorted.slice((page - 1) * limit, page * limit);
+
+        return { data, total, page, limit };
     },
     
     // --- Siswa Pages ---
