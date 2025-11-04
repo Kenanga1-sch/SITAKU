@@ -1,187 +1,322 @@
 
-import { Role, User, Student, Saving, StudentDebt, SavingType, ClassData } from '../types';
+import axios from 'axios';
+import { User, Student, Saving, StudentDebt, TeacherDebt, DailyDepositSlip, ClassData, SavingType, DailySummary } from '../types';
 
-// --- MOCK DATABASE ---
+const apiClient = axios.create({
+    baseURL: '/api', // Assuming backend is served from the same origin under /api
+});
 
-let students: Student[] = [
-    { id: 's1', nis: '1001', name: 'Ani', class: '10-A', balance: 150000, totalDebt: 20000 },
-    { id: 's2', nis: '1002', name: 'Budi', class: '10-A', balance: 250000, totalDebt: 0 },
-    { id: 's3', nis: '1003', name: 'Citra', class: '10-B', balance: 50000, totalDebt: 5000 },
-];
+apiClient.interceptors.request.use(config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
 
-let users: User[] = [
-    { id: 'u1', username: 'admin', role: Role.ADMIN },
-    { id: 'u2', username: 'guru_budi', role: Role.GURU, classManaged: '10-A' },
-    { id: 'u3', username: 'bendahara_siti', role: Role.BENDAHARA },
-    { id: 'u4', username: 'siswa_ani', role: Role.SISWA, studentProfile: students[0] },
-    { id: 'u5', username: 'guru_rudi', role: Role.GURU },
-];
+// A helper to handle errors
+const handleError = (error: any) => {
+    const message = error.response?.data?.message || error.message || 'An unknown error occurred';
+    console.error("API Error:", message, error.response);
+    throw new Error(message);
+};
 
-let savings: Saving[] = [
-    { id: 'sv1', studentId: 's1', amount: 50000, type: SavingType.DEPOSIT, createdAt: new Date(Date.now() - 86400000 * 5).toISOString() },
-    { id: 'sv2', studentId: 's1', amount: 20000, type: SavingType.WITHDRAWAL, createdAt: new Date(Date.now() - 86400000 * 3).toISOString() },
-    { id: 'sv3', studentId: 's2', amount: 100000, type: SavingType.DEPOSIT, createdAt: new Date(Date.now() - 86400000 * 2).toISOString() },
-];
+// Auth
+const login = async (credentials: Pick<User, 'username' | 'password'>): Promise<{ token: string, user: User }> => {
+    try {
+        const { data } = await apiClient.post('/auth/login', credentials);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
 
-let studentDebts: StudentDebt[] = [
-    { id: 'd1', studentId: 's1', amount: 20000, notes: 'Beli buku', isPaid: false, createdAt: new Date(Date.now() - 86400000 * 10).toISOString() },
-];
+const getProfile = async (): Promise<User> => {
+    try {
+        const { data } = await apiClient.get('/auth/profile');
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
 
-let classes: ClassData[] = [
-    { id: 'c1', name: '10-A', waliKelasId: 'u2', waliKelasName: 'guru_budi', studentCount: 2 },
-    { id: 'c2', name: '10-B', waliKelasId: null, waliKelasName: null, studentCount: 1 },
-]
+// Admin Stats
+const getAdminStats = async () => {
+    try {
+        const { data } = await apiClient.get('/stats/admin');
+        return data; // { totalUsers, totalStudents, totalClasses }
+    } catch (error) {
+        return handleError(error);
+    }
+};
 
-// --- MOCK API FUNCTIONS ---
+// User Management (Admin)
+const getAllUsers = async (): Promise<User[]> => {
+    try {
+        const { data } = await apiClient.get('/users');
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
 
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+const createUser = async (userData: Omit<User, 'id'>): Promise<User> => {
+    try {
+        const { data } = await apiClient.post('/users', userData);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const updateUser = async (id: string, userData: Partial<User>): Promise<User> => {
+    try {
+        const { data } = await apiClient.put(`/users/${id}`, userData);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const deleteUser = async (id: string): Promise<void> => {
+    try {
+        await apiClient.delete(`/users/${id}`);
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+// Class Management (Admin)
+const getAllClasses = async (): Promise<ClassData[]> => {
+    try {
+        const { data } = await apiClient.get('/classes');
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const createClass = async (classData: { name: string }): Promise<ClassData> => {
+    try {
+        const { data } = await apiClient.post('/classes', classData);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const updateClass = async (id: string, classData: { name: string }): Promise<ClassData> => {
+    try {
+        const { data } = await apiClient.put(`/classes/${id}`, classData);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const deleteClass = async (id: string): Promise<void> => {
+    try {
+        await apiClient.delete(`/classes/${id}`);
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const getAvailableTeachers = async (): Promise<User[]> => {
+    try {
+        const { data } = await apiClient.get('/users/teachers/available');
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const assignWaliKelas = async (classId: string, waliKelasId: string | null): Promise<ClassData> => {
+    try {
+        const { data } = await apiClient.post(`/classes/${classId}/assign-teacher`, { waliKelasId });
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+// Student Management (Admin)
+const getAllStudents = async (): Promise<Student[]> => {
+    try {
+        const { data } = await apiClient.get('/students');
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const createStudent = async (studentData: Omit<Student, 'id' | 'balance' | 'totalDebt'>): Promise<Student> => {
+    try {
+        const { data } = await apiClient.post('/students', studentData);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const updateStudent = async (id: string, studentData: Partial<Omit<Student, 'id' | 'balance' | 'totalDebt'>>): Promise<Student> => {
+    try {
+        const { data } = await apiClient.put(`/students/${id}`, studentData);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const deleteStudent = async (id: string): Promise<void> => {
+    try {
+        await apiClient.delete(`/students/${id}`);
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+// Guru Actions
+const getStudentsByClass = async (className: string): Promise<Student[]> => {
+    try {
+        const { data } = await apiClient.get(`/guru/students/class/${className}`);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const createSaving = async (savingData: { studentId: string; amount: number; type: SavingType; notes?: string }): Promise<Saving> => {
+    try {
+        const { data } = await apiClient.post('/savings', savingData);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const getGuruDailySummary = async (): Promise<DailySummary> => {
+    try {
+        const { data } = await apiClient.get('/guru/summary/daily');
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const submitDailyDeposit = async (): Promise<DailyDepositSlip> => {
+    try {
+        const { data } = await apiClient.post('/guru/deposits/submit');
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+
+// Bendahara Actions
+const getPendingDepositSlips = async (): Promise<DailyDepositSlip[]> => {
+    try {
+        const { data } = await apiClient.get('/bendahara/deposits/pending');
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const confirmDepositSlip = async (slipId: string): Promise<DailyDepositSlip> => {
+    try {
+        const { data } = await apiClient.post(`/bendahara/deposits/${slipId}/confirm`);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const getTeacherDebts = async (): Promise<TeacherDebt[]> => {
+    try {
+        const { data } = await apiClient.get('/bendahara/debts/teacher');
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const createTeacherDebt = async (debtData: Omit<TeacherDebt, 'id' | 'isPaid' | 'createdAt' | 'recordedById'>): Promise<TeacherDebt> => {
+    try {
+        const { data } = await apiClient.post('/bendahara/debts/teacher', debtData);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const payTeacherDebt = async (debtId: string): Promise<TeacherDebt> => {
+    try {
+        const { data } = await apiClient.post(`/bendahara/debts/teacher/${debtId}/pay`);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+// Siswa Data
+const getStudentById = async (studentId: string): Promise<Student> => {
+    try {
+        const { data } = await apiClient.get(`/students/${studentId}`);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const getSavingsByStudent = async (studentId: string): Promise<Saving[]> => {
+    try {
+        const { data } = await apiClient.get(`/students/${studentId}/savings`);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
+const getDebtsByStudent = async (studentId: string): Promise<StudentDebt[]> => {
+    try {
+        const { data } = await apiClient.get(`/students/${studentId}/debts`);
+        return data;
+    } catch (error) {
+        return handleError(error);
+    }
+};
+
 
 export const api = {
-    login: async (username: string): Promise<User | undefined> => {
-        await delay(500);
-        return users.find(u => u.username === username);
-    },
-
-    getStudentById: async (studentId: string): Promise<Student> => {
-        await delay(300);
-        const student = students.find(s => s.id === studentId);
-        if (!student) throw new Error("Student not found");
-        return student;
-    },
-
-    getSavingsByStudent: async (studentId: string): Promise<Saving[]> => {
-        await delay(500);
-        return savings.filter(s => s.studentId === studentId);
-    },
-    
-    getDebtsByStudent: async (studentId: string): Promise<StudentDebt[]> => {
-        await delay(500);
-        return studentDebts.filter(d => d.studentId === studentId);
-    },
-
-    getAdminStats: async (): Promise<{ totalUsers: number, totalStudents: number, totalClasses: number }> => {
-        await delay(500);
-        return {
-            totalUsers: users.length,
-            totalStudents: students.length,
-            totalClasses: classes.length,
-        };
-    },
-
-    getAllClasses: async (): Promise<ClassData[]> => {
-        await delay(500);
-        return classes.map(c => {
-            const wali = users.find(u => u.id === c.waliKelasId);
-            return { ...c, waliKelasName: wali ? wali.username : null };
-        });
-    },
-
-    getAvailableTeachers: async (): Promise<User[]> => {
-        await delay(500);
-        const assignedTeacherIds = new Set(classes.map(c => c.waliKelasId).filter(Boolean));
-        return users.filter(u => u.role === Role.GURU && !assignedTeacherIds.has(u.id));
-    },
-
-    createClass: async (data: { name: string }): Promise<ClassData> => {
-        await delay(500);
-        if (classes.some(c => c.name.toLowerCase() === data.name.toLowerCase())) {
-            throw new Error(`Kelas dengan nama "${data.name}" sudah ada.`);
-        }
-        const newClass: ClassData = {
-            id: `c${Date.now()}`,
-            name: data.name,
-            studentCount: 0,
-            waliKelasId: null,
-            waliKelasName: null,
-        };
-        classes.push(newClass);
-        return newClass;
-    },
-
-    updateClass: async (id: string, data: { name: string }): Promise<ClassData> => {
-        await delay(500);
-        const classIndex = classes.findIndex(c => c.id === id);
-        if (classIndex === -1) {
-            throw new Error("Kelas tidak ditemukan.");
-        }
-        if (classes.some(c => c.name.toLowerCase() === data.name.toLowerCase() && c.id !== id)) {
-            throw new Error(`Kelas dengan nama "${data.name}" sudah ada.`);
-        }
-        
-        const oldName = classes[classIndex].name;
-        classes[classIndex] = { ...classes[classIndex], name: data.name };
-
-        // Also update teacher's classManaged if name changes
-        if (classes[classIndex].waliKelasId && oldName !== data.name) {
-            const teacher = users.find(u => u.id === classes[classIndex].waliKelasId);
-            if (teacher) {
-                teacher.classManaged = data.name;
-            }
-        }
-        return classes[classIndex];
-    },
-
-    assignWaliKelas: async (classId: string, waliKelasId: string | null): Promise<ClassData> => {
-        await delay(500);
-        const classToUpdate = classes.find(c => c.id === classId);
-        if (!classToUpdate) {
-            throw new Error("Kelas tidak ditemukan.");
-        }
-
-        // Un-assign old teacher from this class
-        const oldTeacherId = classToUpdate.waliKelasId;
-        if (oldTeacherId) {
-            const oldTeacher = users.find(u => u.id === oldTeacherId);
-            if (oldTeacher) {
-                oldTeacher.classManaged = undefined;
-            }
-        }
-
-        if (waliKelasId) {
-            const newTeacher = users.find(u => u.id === waliKelasId);
-            if (!newTeacher || newTeacher.role !== Role.GURU) {
-                throw new Error("Guru tidak ditemukan.");
-            }
-            // Un-assign the new teacher from their previous class if they had one
-            const alreadyAssignedClass = classes.find(c => c.waliKelasId === waliKelasId);
-            if(alreadyAssignedClass) {
-                alreadyAssignedClass.waliKelasId = null;
-                alreadyAssignedClass.waliKelasName = null;
-            }
-
-            classToUpdate.waliKelasId = newTeacher.id;
-            classToUpdate.waliKelasName = newTeacher.username;
-            newTeacher.classManaged = classToUpdate.name;
-        } else {
-            // This is an un-assignment
-            classToUpdate.waliKelasId = null;
-            classToUpdate.waliKelasName = null;
-        }
-        
-        return classToUpdate;
-    },
-
-    deleteClass: async (id: string): Promise<{ id: string }> => {
-        await delay(500);
-        const classIndex = classes.findIndex(c => c.id === id);
-        if (classIndex === -1) {
-            throw new Error("Kelas tidak ditemukan.");
-        }
-        
-        const classToDelete = classes[classIndex];
-        if (classToDelete.studentCount > 0) {
-            throw new Error("Tidak dapat menghapus kelas yang masih memiliki siswa.");
-        }
-
-        // Un-assign teacher if any
-        if (classToDelete.waliKelasId) {
-            const teacher = users.find(u => u.id === classToDelete.waliKelasId);
-            if (teacher) {
-                teacher.classManaged = undefined;
-            }
-        }
-
-        classes.splice(classIndex, 1);
-        return { id };
-    },
+    login,
+    getProfile,
+    getAdminStats,
+    getAllUsers,
+    createUser,
+    updateUser,
+    deleteUser,
+    getAllClasses,
+    createClass,
+    updateClass,
+    deleteClass,
+    getAvailableTeachers,
+    assignWaliKelas,
+    getAllStudents,
+    createStudent,
+    updateStudent,
+    deleteStudent,
+    getStudentsByClass,
+    createSaving,
+    getGuruDailySummary,
+    submitDailyDeposit,
+    getPendingDepositSlips,
+    confirmDepositSlip,
+    getTeacherDebts,
+    createTeacherDebt,
+    payTeacherDebt,
+    getStudentById,
+    getSavingsByStudent,
+    getDebtsByStudent
 };

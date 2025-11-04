@@ -1,102 +1,129 @@
 
-
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../contexts/UIContext';
 import { Role } from '../types';
-import { DashboardIcon, UserGroupIcon, DataMasterIcon, TransactionIcon, DepositIcon, ConfirmationIcon, DebtIcon, UserCircleIcon, CloseIcon } from './Icons';
+import { 
+    DashboardIcon, 
+    UserGroupIcon, 
+    DataMasterIcon, 
+    TransactionIcon, 
+    DepositIcon,
+    ConfirmationIcon,
+    DebtIcon,
+    AcademicCapIcon,
+    CloseIcon
+} from './Icons';
 
 interface NavItemProps {
     to: string;
     icon: React.ReactNode;
     label: string;
+    onClick?: () => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ to, icon, label }) => {
-    const { closeSidebar } = useUI();
-    return (
+const NavItem: React.FC<NavItemProps> = ({ to, icon, label, onClick }) => (
+    <li>
         <NavLink
             to={to}
-            end
-            onClick={closeSidebar} // Close sidebar on navigation
+            onClick={onClick}
             className={({ isActive }) =>
-                `flex items-center px-4 py-3 text-slate-200 hover:bg-slate-700 transition-colors rounded-lg ${isActive ? 'bg-indigo-600 font-semibold' : ''}`
+                `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
+                isActive
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-200 hover:bg-indigo-800 hover:text-white'
+                }`
             }
         >
-            <span className="mr-3">{icon}</span>
-            {label}
+            {icon}
+            <span className="font-medium">{label}</span>
         </NavLink>
-    );
-};
+    </li>
+);
 
 const Sidebar: React.FC = () => {
     const { user } = useAuth();
     const { isSidebarOpen, closeSidebar } = useUI();
+    const location = useLocation();
 
-    const renderNavLinks = () => {
-        switch (user?.role) {
-            case Role.ADMIN:
-                return (
-                    <>
-                        <NavItem to="/admin" icon={<DashboardIcon />} label="Dashboard" />
-                        <NavItem to="/admin/users" icon={<UserGroupIcon />} label="Manajemen User" />
-                        <NavItem to="/admin/classes" icon={<DataMasterIcon />} label="Manajemen Kelas" />
-                    </>
-                );
-            case Role.GURU:
-                return (
-                    <>
-                        <NavItem to="/guru" icon={<DashboardIcon />} label="Dashboard" />
-                        <NavItem to="/guru/transactions" icon={<TransactionIcon />} label="Transaksi Siswa" />
-                        <NavItem to="/guru/deposit" icon={<DepositIcon />} label="Setoran Harian" />
-                    </>
-                );
-            case Role.BENDAHARA:
-                return (
-                    <>
-                        <NavItem to="/bendahara" icon={<DashboardIcon />} label="Dashboard" />
-                        <NavItem to="/bendahara/confirmations" icon={<ConfirmationIcon />} label="Konfirmasi Setoran" />
-                        <NavItem to="/bendahara/staff-debt" icon={<DebtIcon />} label="Utang Staff" />
-                    </>
-                );
-            case Role.SISWA:
-                 return (
-                    <>
-                        <NavItem to="/siswa" icon={<UserCircleIcon />} label="Dashboard Saya" />
-                    </>
-                );
-            default:
-                return null;
+    React.useEffect(() => {
+        if (isSidebarOpen) {
+            closeSidebar();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location]);
+
+    const adminNav = [
+        { to: '/admin/dashboard', icon: <DashboardIcon />, label: 'Dashboard' },
+        { to: '/admin/users', icon: <UserGroupIcon />, label: 'Manajemen User' },
+        { to: '/admin/classes', icon: <AcademicCapIcon />, label: 'Manajemen Kelas' },
+        { to: '/admin/students', icon: <DataMasterIcon />, label: 'Manajemen Siswa' },
+    ];
+
+    const guruNav = [
+        { to: '/guru/dashboard', icon: <DashboardIcon />, label: 'Dashboard' },
+        { to: '/guru/transactions', icon: <TransactionIcon />, label: 'Transaksi Siswa' },
+        { to: '/guru/deposit', icon: <DepositIcon />, label: 'Setoran Harian' },
+    ];
+
+    const bendaharaNav = [
+        { to: '/bendahara/dashboard', icon: <DashboardIcon />, label: 'Dashboard' },
+        { to: '/bendahara/confirmation', icon: <ConfirmationIcon />, label: 'Konfirmasi Setoran' },
+        { to: '/bendahara/staff-debt', icon: <DebtIcon />, label: 'Utang Staff' },
+    ];
+    
+    const siswaNav = [
+        { to: '/siswa/dashboard', icon: <DashboardIcon />, label: 'Dashboard' },
+    ];
+
+    const getNavItems = () => {
+        if (!user) return [];
+        switch (user.role) {
+            case Role.ADMIN: return adminNav;
+            case Role.GURU: return guruNav;
+            case Role.BENDAHARA: return bendaharaNav;
+            case Role.SISWA: return siswaNav;
+            default: return [];
         }
     };
 
+    const navItems = getNavItems();
+    
+    const SidebarContent = () => (
+        <div className="flex flex-col h-full bg-indigo-900 text-white">
+            <div className="flex items-center justify-between p-4 border-b border-indigo-800">
+                <h1 className="text-xl font-bold">TabunganSiswa</h1>
+                 <button onClick={closeSidebar} className="md:hidden text-indigo-200 hover:text-white">
+                    <CloseIcon />
+                </button>
+            </div>
+            <nav className="flex-1 p-4">
+                <ul className="space-y-2">
+                    {navItems.map(item => (
+                        <NavItem key={item.to} {...item} onClick={closeSidebar} />
+                    ))}
+                </ul>
+            </nav>
+            <div className="p-4 border-t border-indigo-800">
+                <p className="text-sm text-indigo-300">© {new Date().getFullYear()} App</p>
+            </div>
+        </div>
+    );
+    
     return (
         <>
-            {/* Backdrop for mobile */}
-            <div 
-                className={`fixed inset-0 bg-black/60 z-30 md:hidden transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                onClick={closeSidebar}
-            ></div>
-
-            {/* Sidebar */}
-            <aside 
-                className={`fixed top-0 left-0 h-full w-64 bg-slate-800 text-white flex-col p-4 z-40
-                           transform transition-transform md:relative md:translate-x-0 md:flex
-                           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-            >
-                <div className="flex justify-between items-center text-center py-4 mb-6">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-wider">SI-TAKU</h1>
-                        <p className="text-sm text-slate-400">Tabungan Siswa</p>
-                    </div>
-                    <button onClick={closeSidebar} className="md:hidden text-slate-400 hover:text-white">
-                        <CloseIcon />
-                    </button>
+            {/* Mobile Sidebar */}
+            <div className={`fixed inset-0 z-40 transform md:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
+                <div className="w-64 h-full">
+                    <SidebarContent />
                 </div>
-                <nav className="flex flex-col space-y-2">
-                    {renderNavLinks()}
-                </nav>
+            </div>
+            {isSidebarOpen && <div onClick={closeSidebar} className="fixed inset-0 bg-black opacity-50 z-30 md:hidden"></div>}
+
+            {/* Desktop Sidebar */}
+            <aside className="hidden md:block w-64 flex-shrink-0">
+                 <SidebarContent />
             </aside>
         </>
     );
