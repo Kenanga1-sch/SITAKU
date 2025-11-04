@@ -6,15 +6,18 @@ import { useForm } from 'react-hook-form';
 
 import { api } from '../../services/api';
 import { User, Role } from '../../types';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
-import { AddIcon, EditIcon, DeleteIcon, UserGroupIcon } from '../../components/Icons';
+import { AddIcon, EditIcon, DeleteIcon, UserGroupIcon, UserCircleIcon } from '../../components/Icons';
+import FormInput from '../../components/FormInput';
+import FormSelect from '../../components/FormSelect';
+import FormButton from '../../components/FormButton';
+import TableSkeleton from '../../components/TableSkeleton';
 
 type UserInputs = Omit<User, 'id'> & { id?: string; password?: string };
 
-const UserManagement: React.FC = () => {
+const UserManagement = () => {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -30,7 +33,6 @@ const UserManagement: React.FC = () => {
     const userMutation = useMutation({
         mutationFn: (data: UserInputs) => {
             const { id, ...userData } = data;
-            // Don't send empty password
             if (userData.password === '') {
                 delete userData.password;
             }
@@ -106,18 +108,20 @@ const UserManagement: React.FC = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-slate-800">Manajemen Pengguna</h1>
-                <button onClick={handleAdd} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors shadow-sm">
+                <FormButton onClick={handleAdd}>
                     <AddIcon />
-                    <span>Tambah Pengguna</span>
-                </button>
+                    <span className="hidden sm:inline">Tambah Pengguna</span>
+                </FormButton>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow-sm">
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
                 {isLoading ? (
-                    <LoadingSpinner />
+                    <TableSkeleton cols={3} />
                 ) : !users || users.length === 0 ? (
                     <EmptyState message="Belum ada data pengguna." icon={<UserGroupIcon size={12}/>} />
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    {/* Desktop Table */}
+                    <div className="overflow-x-auto hidden md:block">
                         <table className="min-w-full divide-y divide-slate-200">
                             <thead className="bg-slate-50">
                                 <tr>
@@ -128,60 +132,69 @@ const UserManagement: React.FC = () => {
                             </thead>
                             <tbody className="bg-white divide-y divide-slate-200">
                                 {users.map((user) => (
-                                    <tr key={user.id}>
+                                    <tr key={user.id} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{user.username}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{getRoleDisplayName(user.role)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
-                                            <button onClick={() => handleEdit(user)} className="text-indigo-600 hover:text-indigo-900"><EditIcon /></button>
-                                            <button onClick={() => handleDelete(user)} className="text-rose-600 hover:text-rose-900"><DeleteIcon /></button>
+                                            <button onClick={() => handleEdit(user)} className="text-indigo-600 hover:text-indigo-900" title="Edit"><EditIcon /></button>
+                                            <button onClick={() => handleDelete(user)} className="text-rose-600 hover:text-rose-900" title="Hapus"><DeleteIcon /></button>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
+                    {/* Mobile Cards */}
+                     <div className="md:hidden space-y-4">
+                        {users.map((user) => (
+                            <div key={user.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-bold text-slate-800">{user.username}</p>
+                                        <p className="text-sm text-slate-500">{getRoleDisplayName(user.role)}</p>
+                                    </div>
+                                    <div className="flex items-center space-x-3">
+                                        <button onClick={() => handleEdit(user)} className="text-indigo-600"><EditIcon /></button>
+                                        <button onClick={() => handleDelete(user)} className="text-rose-600"><DeleteIcon /></button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    </>
                 )}
             </div>
 
             <Modal isOpen={isModalOpen} onClose={closeModal} title={selectedUser ? 'Edit Pengguna' : 'Tambah Pengguna'}>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                    <div>
-                        <label htmlFor="username" className="block text-sm font-medium text-slate-700">Username</label>
-                        <input
-                            id="username"
-                            {...register('username', { required: 'Username tidak boleh kosong' })}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        {errors.username && <p className="text-sm text-rose-600 mt-1">{errors.username.message}</p>}
-                    </div>
-                     <div>
-                        <label htmlFor="role" className="block text-sm font-medium text-slate-700">Role</label>
-                        <select
-                            id="role"
-                            {...register('role', { required: 'Role harus dipilih' })}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value={Role.ADMIN}>Admin</option>
-                            <option value={Role.GURU}>Guru</option>
-                            <option value={Role.BENDAHARA}>Bendahara</option>
-                            <option value={Role.SISWA}>Siswa</option>
-                        </select>
-                         {errors.role && <p className="text-sm text-rose-600 mt-1">{errors.role.message}</p>}
-                    </div>
-                    <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-slate-700">Password</label>
-                        <input
-                            id="password"
-                            type="password"
-                            {...register('password', { required: !selectedUser && 'Password tidak boleh kosong' })}
-                            placeholder={selectedUser ? "Kosongkan jika tidak ingin mengubah" : ""}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                         {errors.password && <p className="text-sm text-rose-600 mt-1">{errors.password.message}</p>}
-                    </div>
+                    <FormInput 
+                        id="username"
+                        label="Username"
+                        {...register('username', { required: 'Username tidak boleh kosong' })}
+                        error={errors.username?.message}
+                    />
+                    <FormSelect
+                        id="role"
+                        label="Role"
+                        {...register('role', { required: 'Role harus dipilih' })}
+                        error={errors.role?.message}
+                    >
+                        <option value={Role.ADMIN}>Admin</option>
+                        <option value={Role.GURU}>Guru</option>
+                        <option value={Role.BENDAHARA}>Bendahara</option>
+                        <option value={Role.SISWA}>Siswa</option>
+                    </FormSelect>
+                     <FormInput
+                        id="password"
+                        label="Password"
+                        type="password"
+                        {...register('password', { required: !selectedUser && 'Password tidak boleh kosong' })}
+                        error={errors.password?.message}
+                        placeholder={selectedUser ? "Kosongkan jika tidak ingin mengubah" : ""}
+                    />
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={closeModal} className="px-4 py-2 bg-slate-100 text-slate-800 rounded-md hover:bg-slate-200">Batal</button>
-                        <button type="submit" disabled={userMutation.isPending} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">{userMutation.isPending ? 'Menyimpan...' : 'Simpan'}</button>
+                        <FormButton type="button" variant="secondary" onClick={closeModal}>Batal</FormButton>
+                        <FormButton type="submit" disabled={userMutation.isPending}>{userMutation.isPending ? 'Menyimpan...' : 'Simpan'}</FormButton>
                     </div>
                 </form>
             </Modal>

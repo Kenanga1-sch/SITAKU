@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -9,7 +9,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { Student, Saving, SavingType } from '../../types';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
-import { DepositIcon, TransactionIcon, UserCircleIcon } from '../../components/Icons';
+import { UserCircleIcon } from '../../components/Icons';
+import FormInput from '../../components/FormInput';
+import FormSelect from '../../components/FormSelect';
+import FormButton from '../../components/FormButton';
 
 type SavingInputs = {
     amount: number;
@@ -17,7 +20,7 @@ type SavingInputs = {
     notes?: string;
 };
 
-const StudentTransactions: React.FC = () => {
+const StudentTransactions = () => {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -27,6 +30,13 @@ const StudentTransactions: React.FC = () => {
         queryKey: ['classStudents', user?.classManaged],
         queryFn: () => api.getStudentsByClass(user!.classManaged!),
         enabled: !!user?.classManaged,
+    });
+    
+    // This query is for the details of the *selected* student
+    const { data: selectedStudentDetails, isLoading: isLoadingSelectedStudent } = useQuery<Student>({
+        queryKey: ['studentDetails', selectedStudent?.id],
+        queryFn: () => api.getStudentById(selectedStudent!.id),
+        enabled: !!selectedStudent,
     });
 
     const { data: transactions, isLoading: isLoadingTxs } = useQuery<Saving[]>({
@@ -38,14 +48,12 @@ const StudentTransactions: React.FC = () => {
     const savingMutation = useMutation({
         mutationFn: (data: SavingInputs) => api.createSaving({ ...data, studentId: selectedStudent!.id }),
         onSuccess: () => {
+            // Invalidate queries to refetch data automatically
             queryClient.invalidateQueries({ queryKey: ['studentSavings', selectedStudent?.id] });
-            queryClient.invalidateQueries({ queryKey: ['classStudents', user?.classManaged] }); // To update balance
+            queryClient.invalidateQueries({ queryKey: ['classStudents', user?.classManaged] }); 
+            queryClient.invalidateQueries({ queryKey: ['studentDetails', selectedStudent?.id] });
             toast.success('Transaksi berhasil dicatat!');
             reset({ amount: 0, type: SavingType.DEPOSIT, notes: '' });
-            // Refetch selected student to update balance display
-            if(selectedStudent) {
-                api.getStudentById(selectedStudent.id).then(updatedStudent => setSelectedStudent(updatedStudent));
-            }
         },
         onError: (err) => {
             toast.error((err as Error).message || 'Gagal mencatat transaksi.');
@@ -59,6 +67,8 @@ const StudentTransactions: React.FC = () => {
     if (!user?.classManaged) {
         return <EmptyState message="Anda tidak ditugaskan sebagai wali kelas." icon={<UserCircleIcon size={12}/>} />;
     }
+
+    const studentToDisplay = selectedStudentDetails || selectedStudent;
 
     return (
         <div>
@@ -91,36 +101,32 @@ const StudentTransactions: React.FC = () => {
                     ) : (
                         <div className="space-y-6">
                             <div className="bg-white p-6 rounded-lg shadow-sm">
-                                <h2 className="text-2xl font-bold text-slate-800">{selectedStudent.name}</h2>
-                                <p className="text-slate-500">NIS: {selectedStudent.nis}</p>
-                                <p className="mt-4 text-3xl font-bold text-emerald-600">Saldo: Rp {selectedStudent.balance.toLocaleString('id-ID')}</p>
+                                {isLoadingSelectedStudent && !selectedStudentDetails ? <div className="h-20 animate-pulse bg-slate-200 rounded-md"></div> : (
+                                    <>
+                                        <h2 className="text-2xl font-bold text-slate-800">{studentToDisplay?.name}</h2>
+                                        <p className="text-slate-500">NIS: {studentToDisplay?.nis}</p>
+                                        <p className="mt-4 text-3xl font-bold text-emerald-600">Saldo: Rp {studentToDisplay?.balance.toLocaleString('id-ID')}</p>
+                                    </>
+                                )}
                             </div>
                             <div className="bg-white p-6 rounded-lg shadow-sm">
                                 <h3 className="text-xl font-bold text-slate-800 mb-4">Tambah Transaksi</h3>
                                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700">Jumlah</label>
-                                        <input 
-                                            type="number" 
-                                            {...register('amount', { required: true, valueAsNumber: true, min: 1 })}
-                                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-                                        />
-                                        {errors.amount && <p className="text-rose-600 text-sm mt-1">Jumlah harus diisi.</p>}
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700">Jenis Transaksi</label>
-                                        <select {...register('type')} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm">
-                                            <option value={SavingType.DEPOSIT}>Setoran</option>
-                                            <option value={SavingType.WITHDRAWAL}>Penarikan</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700">Catatan (Opsional)</label>
-                                        <input type="text" {...register('notes')} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
-                                    </div>
-                                    <button type="submit" disabled={savingMutation.isPending} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">
+                                    <FormInput 
+                                        id="amount"
+                                        label="Jumlah"
+                                        type="number"
+                                        {...register('amount', { required: 'Jumlah harus diisi', valueAsNumber: true, min: { value: 1, message: 'Jumlah minimal 1' } })}
+                                        error={errors.amount?.message}
+                                    />
+                                    <FormSelect id="type" label="Jenis Transaksi" {...register('type')}>
+                                        <option value={SavingType.DEPOSIT}>Setoran</option>
+                                        <option value={SavingType.WITHDRAWAL}>Penarikan</option>
+                                    </FormSelect>
+                                    <FormInput id="notes" label="Catatan (Opsional)" {...register('notes')} />
+                                    <FormButton type="submit" disabled={savingMutation.isPending}>
                                         {savingMutation.isPending ? 'Menyimpan...' : 'Simpan Transaksi'}
-                                    </button>
+                                    </FormButton>
                                 </form>
                             </div>
                             <div className="bg-white p-6 rounded-lg shadow-sm">

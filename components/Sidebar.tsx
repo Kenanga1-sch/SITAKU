@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../contexts/UIContext';
@@ -23,7 +23,7 @@ interface NavItemProps {
     onClick?: () => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ to, icon, label, onClick }) => (
+const NavItem = memo<NavItemProps>(({ to, icon, label, onClick }) => (
     <li>
         <NavLink
             to={to}
@@ -40,7 +40,7 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon, label, onClick }) => (
             <span className="font-medium">{label}</span>
         </NavLink>
     </li>
-);
+));
 
 const Sidebar: React.FC = () => {
     const { user } = useAuth();
@@ -93,7 +93,7 @@ const Sidebar: React.FC = () => {
     const SidebarContent = () => (
         <div className="flex flex-col h-full bg-indigo-900 text-white">
             <div className="flex items-center justify-between p-4 border-b border-indigo-800">
-                <h1 className="text-xl font-bold">TabunganSiswa</h1>
+                <h1 className="text-xl font-bold">SI-TAKU</h1>
                  <button onClick={closeSidebar} className="md:hidden text-indigo-200 hover:text-white">
                     <CloseIcon />
                 </button>
@@ -106,7 +106,7 @@ const Sidebar: React.FC = () => {
                 </ul>
             </nav>
             <div className="p-4 border-t border-indigo-800">
-                <p className="text-sm text-indigo-300">© {new Date().getFullYear()} App</p>
+                <p className="text-sm text-indigo-300">© {new Date().getFullYear()} SI-TAKU</p>
             </div>
         </div>
     );

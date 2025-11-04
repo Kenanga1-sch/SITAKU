@@ -1,18 +1,19 @@
 
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
 import { api } from '../../services/api';
-import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { ClassData, User } from '../../types';
-// Fix: Import DataMasterIcon
 import { AddIcon, EditIcon, DeleteIcon, UserCircleIcon, AcademicCapIcon, UserGroupIcon, DataMasterIcon } from '../../components/Icons';
 import { useForm } from 'react-hook-form';
+import FormButton from '../../components/FormButton';
+import FormInput from '../../components/FormInput';
+import FormSelect from '../../components/FormSelect';
+import TableSkeleton from '../../components/TableSkeleton';
 
 type ClassInputs = {
     id?: string;
@@ -24,7 +25,7 @@ type AssignTeacherInputs = {
     waliKelasId: string | null;
 }
 
-const ClassManagement: React.FC = () => {
+const ClassManagement = () => {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -42,6 +43,7 @@ const ClassManagement: React.FC = () => {
     const { data: availableTeachers, isLoading: isLoadingTeachers } = useQuery<User[]>({
         queryKey: ['availableTeachers'],
         queryFn: api.getAvailableTeachers,
+        enabled: isAssignModalOpen, // Only fetch when the assign modal is open
     });
 
     const classMutation = useMutation({
@@ -142,14 +144,14 @@ const ClassManagement: React.FC = () => {
         <div>
             <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Manajemen Kelas</h1>
-                <button onClick={handleAdd} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors shadow-sm">
+                <FormButton onClick={handleAdd}>
                     <AddIcon />
                     <span>Tambah Kelas</span>
-                </button>
+                </FormButton>
             </div>
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
                 {isLoadingClasses ? (
-                    <LoadingSpinner />
+                    <TableSkeleton cols={4} />
                 ) : !classes || classes.length === 0 ? (
                     <EmptyState message="Belum ada data kelas." icon={<DataMasterIcon size={12} />} />
                 ) : (
@@ -212,43 +214,37 @@ const ClassManagement: React.FC = () => {
              {/* Modals */}
              <Modal isOpen={isModalOpen} onClose={closeModal} title={selectedClass ? 'Edit Kelas' : 'Tambah Kelas'}>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                    <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-slate-700">Nama Kelas</label>
-                        <input
-                            id="name"
-                            {...register('name', { required: 'Nama kelas tidak boleh kosong' })}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        {errors.name && <p className="text-sm text-rose-600 mt-1">{errors.name.message}</p>}
-                    </div>
+                    <FormInput
+                        id="name"
+                        label="Nama Kelas"
+                        {...register('name', { required: 'Nama kelas tidak boleh kosong' })}
+                        error={errors.name?.message}
+                    />
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={closeModal} className="px-4 py-2 bg-slate-100 text-slate-800 rounded-md hover:bg-slate-200">Batal</button>
-                        <button type="submit" disabled={classMutation.isPending} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">{classMutation.isPending ? 'Menyimpan...' : 'Simpan'}</button>
+                        <FormButton type="button" variant="secondary" onClick={closeModal}>Batal</FormButton>
+                        <FormButton type="submit" disabled={classMutation.isPending}>{classMutation.isPending ? 'Menyimpan...' : 'Simpan'}</FormButton>
                     </div>
                 </form>
             </Modal>
             
             <Modal isOpen={isAssignModalOpen} onClose={closeAssignModal} title={`Atur Wali Kelas untuk ${selectedClass?.name}`}>
                  <form onSubmit={handleSubmitAssign(onAssignSubmit)} className="space-y-4">
-                    {isLoadingTeachers ? <LoadingSpinner /> : (
-                    <div>
-                        <label htmlFor="waliKelasId" className="block text-sm font-medium text-slate-700">Pilih Guru</label>
-                        <select
-                            id="waliKelasId"
-                            {...registerAssign('waliKelasId')}
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="">-- Lepas Jabatan --</option>
-                            {selectedClass?.waliKelasName && <option value={selectedClass.waliKelasId!}>{selectedClass.waliKelasName} (Saat ini)</option>}
-                            {availableTeachers?.map(teacher => (
-                                <option key={teacher.id} value={teacher.id}>{teacher.username}</option>
-                            ))}
-                        </select>
-                    </div>
+                    {isLoadingTeachers ? <div className="h-10 animate-pulse bg-slate-200 rounded-md"></div> : (
+                    <FormSelect
+                        id="waliKelasId"
+                        label="Pilih Guru"
+                        {...registerAssign('waliKelasId')}
+                    >
+                        <option value="">-- Lepas Jabatan --</option>
+                        {selectedClass?.waliKelasName && <option value={selectedClass.waliKelasId!}>{selectedClass.waliKelasName} (Saat ini)</option>}
+                        {availableTeachers?.map(teacher => (
+                            <option key={teacher.id} value={teacher.id}>{teacher.username}</option>
+                        ))}
+                    </FormSelect>
                     )}
                     <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={closeAssignModal} className="px-4 py-2 bg-slate-100 text-slate-800 rounded-md hover:bg-slate-200">Batal</button>
-                        <button type="submit" disabled={assignTeacherMutation.isPending} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">{assignTeacherMutation.isPending ? 'Menyimpan...' : 'Simpan'}</button>
+                        <FormButton type="button" variant="secondary" onClick={closeAssignModal}>Batal</FormButton>
+                        <FormButton type="submit" disabled={assignTeacherMutation.isPending}>{assignTeacherMutation.isPending ? 'Menyimpan...' : 'Simpan'}</FormButton>
                     </div>
                 </form>
             </Modal>

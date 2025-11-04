@@ -1,5 +1,4 @@
 
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
@@ -22,7 +21,7 @@ import DepositConfirmation from './pages/bendahara/DepositConfirmation';
 import StaffDebt from './pages/bendahara/StaffDebt';
 import SiswaDashboard from './pages/siswa/SiswaDashboard';
 
-const App: React.FC = () => {
+const App = () => {
     return (
         <UIProvider>
             <BrowserRouter>
@@ -35,7 +34,7 @@ const App: React.FC = () => {
     );
 };
 
-const Main: React.FC = () => {
+const Main = () => {
     const { isAuthenticated } = useAuth();
     return (
         <Routes>
@@ -45,7 +44,7 @@ const Main: React.FC = () => {
     );
 }
 
-const AppLayout: React.FC = () => {
+const AppLayout = () => {
     return (
         <div className="flex h-screen bg-slate-50">
             <Sidebar />
@@ -59,7 +58,7 @@ const AppLayout: React.FC = () => {
     );
 };
 
-const AppRoutes: React.FC = () => {
+const AppRoutes = () => {
     const { user } = useAuth();
 
     const getDashboardRoute = () => {
@@ -109,7 +108,7 @@ const AppRoutes: React.FC = () => {
     );
 };
 
-const ProtectedRoute: React.FC<{ roles: Role[] }> = ({ roles }) => {
+const ProtectedRoute = ({ roles }: { roles: Role[] }) => {
     const { user } = useAuth();
 
     if (!user || !roles.includes(user.role)) {

@@ -35,8 +35,8 @@ let mockClasses: ClassData[] = [
 ];
 
 let mockSavings: Saving[] = [
-    { id: 'saving-1', studentId: 'student-1', amount: 50000, type: SavingType.DEPOSIT, createdAt: new Date().toISOString() },
-    { id: 'saving-2', studentId: 'student-2', amount: 75000, type: SavingType.DEPOSIT, createdAt: new Date().toISOString() },
+    { id: 'saving-1', studentId: 'student-1', amount: 50000, type: SavingType.DEPOSIT, createdAt: new Date(Date.now() - 86400000 * 2).toISOString() }, // 2 days ago
+    { id: 'saving-2', studentId: 'student-2', amount: 75000, type: SavingType.DEPOSIT, createdAt: new Date(Date.now() - 86400000 * 1).toISOString() }, // 1 day ago
 ];
 
 let mockStudentDebts: StudentDebt[] = [
@@ -58,7 +58,6 @@ const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 // Auth
-// FIX: The User type does not contain a password. Use a specific type for credentials.
 const login = async (credentials: { username: string; password: string; }): Promise<{ token: string, user: User }> => {
     await delay(500);
     const user = mockUsers.find(u => u.username === credentials.username);
@@ -66,15 +65,17 @@ const login = async (credentials: { username: string; password: string; }): Prom
         throw new Error('Username atau password salah.');
     }
     const token = `mock-token-for-${user.id}`;
+    localStorage.setItem('loggedInUserId', user.id);
     return { token, user };
 };
 
 const getProfile = async (): Promise<User> => {
     await delay(300);
-    // In a real app, you'd get user ID from token. Here we'll just use the first user of a role for simplicity
-    // Let's assume the token is valid for 'user-admin' if no one else is logged in.
-    const loggedInUser = mockUsers[0]; // a default, should be replaced by actual login
-    return loggedInUser;
+    const userId = localStorage.getItem('loggedInUserId');
+    if(!userId) throw new Error("Not authenticated");
+    const user = mockUsers.find(u => u.id === userId);
+    if(!user) throw new Error("User not found");
+    return user;
 };
 
 // ... Rest of the mock functions ...
@@ -88,26 +89,59 @@ const getAdminStats = async () => {
     };
 };
 
-const getAllUsers = async () => { await delay(300); return mockUsers; };
-const createUser = async (userData: any) => {
+const getAllUsers = async () => { await delay(300); return [...mockUsers]; };
+const createUser = async (userData: Pick<User, 'username' | 'role'> & { password?: string }) => {
     await delay(500);
+    if (mockUsers.some(u => u.username === userData.username)) {
+        throw new Error(`Username "${userData.username}" sudah digunakan.`);
+    }
     const newUser: User = { id: generateId('user'), ...userData };
     mockUsers.push(newUser);
     if (userData.password) mockPasswords[newUser.id] = userData.password;
     return newUser;
 };
-const updateUser = async (id: string, userData: any) => {
+const updateUser = async (id: string, userData: Partial<User> & { password?: string }) => {
     await delay(500);
-    mockUsers = mockUsers.map(u => u.id === id ? { ...u, ...userData } : u);
+    let userToUpdate: User | undefined;
+    mockUsers = mockUsers.map(u => {
+        if (u.id === id) {
+            userToUpdate = { ...u, ...userData };
+            return userToUpdate;
+        }
+        return u;
+    });
     if (userData.password) mockPasswords[id] = userData.password;
-    return mockUsers.find(u => u.id === id)!;
-};
-const deleteUser = async (id: string) => {
-    await delay(500);
-    mockUsers = mockUsers.filter(u => u.id !== id);
+    if (!userToUpdate) throw new Error("User not found");
+    return userToUpdate;
 };
 
-const getAllClasses = async () => { await delay(300); return mockClasses; };
+const deleteUser = async (id: string) => {
+    await delay(500);
+    const userToDelete = mockUsers.find(u => u.id === id);
+    if (!userToDelete) return;
+
+    // If user is a teacher, unassign from class
+    if (userToDelete.role === Role.GURU) {
+        mockClasses = mockClasses.map(c => c.waliKelasId === id ? { ...c, waliKelasId: null, waliKelasName: null } : c);
+    }
+    
+    // If user is a student, delete student record
+    if (userToDelete.role === Role.SISWA && userToDelete.studentProfile) {
+        await deleteStudent(userToDelete.studentProfile.id);
+    }
+
+    mockUsers = mockUsers.filter(u => u.id !== id);
+    delete mockPasswords[id];
+};
+
+const getAllClasses = async () => { 
+    await delay(300); 
+    // Recalculate student counts to ensure data integrity
+    return mockClasses.map(c => ({
+        ...c,
+        studentCount: mockStudents.filter(s => s.class === c.name).length
+    }));
+};
 const getAvailableTeachers = async () => {
     await delay(300);
     const assignedTeacherIds = new Set(mockClasses.map(c => c.waliKelasId));
@@ -115,7 +149,10 @@ const getAvailableTeachers = async () => {
 };
 const createClass = async (classData: { name: string }) => {
     await delay(500);
-    const newClass: ClassData = { id: generateId('class'), studentCount: 0, ...classData };
+    if (mockClasses.some(c => c.name === classData.name)) {
+        throw new Error(`Kelas "${classData.name}" sudah ada.`);
+    }
+    const newClass: ClassData = { id: generateId('class'), studentCount: 0, waliKelasId: null, waliKelasName: null, ...classData };
     mockClasses.push(newClass);
     return newClass;
 };
@@ -127,11 +164,16 @@ const updateClass = async (id: string, classData: { name: string }) => {
 const assignWaliKelas = async (classId: string, waliKelasId: string | null) => {
     await delay(500);
     const teacher = waliKelasId ? mockUsers.find(u => u.id === waliKelasId) : null;
+
+    // Unassign this teacher from any other class first
+    mockUsers = mockUsers.map(u => u.id === waliKelasId ? { ...u, classManaged: teacher ? mockClasses.find(c => c.id === classId)?.name : undefined } : u);
+    
     mockClasses = mockClasses.map(c => {
         // Unassign from other classes if this teacher was assigned elsewhere
         if (c.waliKelasId === waliKelasId && c.id !== classId) {
             return { ...c, waliKelasId: null, waliKelasName: null };
         }
+        // Assign to the target class
         if (c.id === classId) {
             return { ...c, waliKelasId, waliKelasName: teacher?.username || null };
         }
@@ -141,37 +183,53 @@ const assignWaliKelas = async (classId: string, waliKelasId: string | null) => {
 };
 const deleteClass = async (id: string) => {
     await delay(500);
+    const classToDelete = mockClasses.find(c => c.id === id);
+    if (!classToDelete) return;
+    if (classToDelete.studentCount > 0) {
+        throw new Error("Tidak dapat menghapus kelas yang masih memiliki siswa.");
+    }
+    if (classToDelete.waliKelasId) {
+        mockUsers = mockUsers.map(u => u.id === classToDelete.waliKelasId ? { ...u, classManaged: undefined } : u);
+    }
     mockClasses = mockClasses.filter(c => c.id !== id);
 };
 
-const getAllStudents = async () => { await delay(300); return mockStudents; };
+const getAllStudents = async () => { await delay(300); return [...mockStudents]; };
 const getStudentById = async (id: string) => { 
     await delay(100); 
     const student = mockStudents.find(s => s.id === id);
     if (!student) throw new Error("Student not found");
-    return student;
+    return {...student};
 };
 const getStudentsByClass = async (className: string) => {
     await delay(400);
     return mockStudents.filter(s => s.class === className);
 };
-const createStudent = async (studentData: any) => {
+const createStudent = async (studentData: Pick<Student, 'nis'|'name'|'class'>) => {
     await delay(500);
     const newStudent: Student = { id: generateId('student'), balance: 0, totalDebt: 0, ...studentData };
     mockStudents.push(newStudent);
+    
     // Also create a user for the student
-    const newUser: User = { id: generateId('user'), username: `siswa_${studentData.name.toLowerCase().split(' ')[0]}`, role: Role.SISWA, studentProfile: newStudent };
+    const username = `siswa_${studentData.name.toLowerCase().split(' ')[0]}${Math.floor(Math.random()*100)}`;
+    const newUser: User = { id: generateId('user'), username, role: Role.SISWA, studentProfile: newStudent };
     mockUsers.push(newUser);
     mockPasswords[newUser.id] = 'password'; // Default password
     return newStudent;
 };
-const updateStudent = async (id: string, studentData: any) => {
+const updateStudent = async (id: string, studentData: Partial<Student>) => {
     await delay(500);
     mockStudents = mockStudents.map(s => s.id === id ? { ...s, ...studentData } : s);
     return mockStudents.find(s => s.id === id)!;
 };
 const deleteStudent = async (id: string) => {
     await delay(500);
+    // Also delete student's user account
+    const studentUser = mockUsers.find(u => u.studentProfile?.id === id);
+    if (studentUser) {
+        mockUsers = mockUsers.filter(u => u.id !== studentUser.id);
+        delete mockPasswords[studentUser.id];
+    }
     mockStudents = mockStudents.filter(s => s.id !== id);
 };
 
@@ -186,10 +244,18 @@ const getDebtsByStudent = async (studentId: string) => {
     return mockStudentDebts.filter(d => d.studentId === studentId);
 };
 
-const createSaving = async (savingData: any) => {
+const createSaving = async (savingData: Omit<Saving, 'id'|'createdAt'>) => {
     await delay(400);
+    
+    const student = mockStudents.find(s => s.id === savingData.studentId);
+    if (!student) throw new Error("Siswa tidak ditemukan");
+    if (savingData.type === SavingType.WITHDRAWAL && student.balance < savingData.amount) {
+        throw new Error("Saldo tidak mencukupi untuk penarikan.");
+    }
+
     const newSaving: Saving = { id: generateId('saving'), createdAt: new Date().toISOString(), ...savingData };
     mockSavings.push(newSaving);
+
     // Update student balance
     mockStudents = mockStudents.map(s => {
         if (s.id === savingData.studentId) {
@@ -198,16 +264,29 @@ const createSaving = async (savingData: any) => {
         }
         return s;
     });
+    // Update student profile in user object
+     mockUsers = mockUsers.map(u => {
+        if (u.studentProfile?.id === savingData.studentId) {
+            const studentToUpdate = mockStudents.find(s => s.id === savingData.studentId);
+            return { ...u, studentProfile: studentToUpdate };
+        }
+        return u;
+    });
     return newSaving;
 };
 
 const getGuruDailySummary = async (): Promise<DailySummary> => {
     await delay(500);
+    const guruId = localStorage.getItem('loggedInUserId');
+    if (!guruId) throw new Error("User not found");
+
     const today = new Date().toISOString().split('T')[0];
+    // In a real app, we'd filter by guruId on the backend. Here we simulate.
     const todaysTransactions = mockSavings.filter(s => s.createdAt.startsWith(today));
-    const hasSubmitted = mockDepositSlips.some(slip => slip.createdAt.startsWith(today) && slip.status !== DepositSlipStatus.PENDING);
+    const hasSubmitted = mockDepositSlips.some(slip => slip.createdAt.startsWith(today) && slip.guruId === guruId);
+
     return {
-        guruId: 'user-guru-a', // Mocked
+        guruId: guruId,
         transactions: todaysTransactions,
         submissionStatus: hasSubmitted
     };
@@ -215,6 +294,10 @@ const getGuruDailySummary = async (): Promise<DailySummary> => {
 
 const submitDailyDeposit = async (): Promise<DailyDepositSlip> => {
     await delay(600);
+    const guruId = localStorage.getItem('loggedInUserId');
+    const guru = mockUsers.find(u => u.id === guruId);
+    if (!guru || guru.role !== Role.GURU) throw new Error("Invalid user");
+
     const summary = await getGuruDailySummary();
     const totalDeposit = summary.transactions.filter(tx => tx.type === SavingType.DEPOSIT).reduce((acc, tx) => acc + tx.amount, 0);
     const totalWithdrawal = summary.transactions.filter(tx => tx.type === SavingType.WITHDRAWAL).reduce((acc, tx) => acc + tx.amount, 0);
@@ -224,8 +307,8 @@ const submitDailyDeposit = async (): Promise<DailyDepositSlip> => {
 
     const newSlip: DailyDepositSlip = {
         id: generateId('slip'),
-        guruId: 'user-guru-a', // Mocked
-        class: '10-A', // Mocked
+        guruId: guru.id,
+        class: guru.classManaged || 'Unknown',
         amount: netAmount,
         status: DepositSlipStatus.PENDING,
         createdAt: new Date().toISOString()
@@ -251,13 +334,15 @@ const getTeacherDebts = async () => {
     return mockTeacherDebts;
 };
 
-const createTeacherDebt = async (debtData: any) => {
+const createTeacherDebt = async (debtData: Omit<TeacherDebt, 'id'|'isPaid'|'createdAt'|'recordedById'>) => {
     await delay(500);
+    const recorderId = localStorage.getItem('loggedInUserId');
+    if (!recorderId) throw new Error("User not found");
     const newDebt: TeacherDebt = {
         id: generateId('tdebt'),
         isPaid: false,
         createdAt: new Date().toISOString(),
-        recordedById: 'user-bendahara', // Mocked
+        recordedById: recorderId,
         ...debtData
     };
     mockTeacherDebts.push(newDebt);

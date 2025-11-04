@@ -2,12 +2,13 @@ import React from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { User, Role } from '../types';
+import { Role } from '../types';
+import FormInput from '../components/FormInput';
+import FormButton from '../components/FormButton';
 
-// FIX: Define login form inputs directly as the User type doesn't include a password.
 type LoginFormInputs = { username: string; password: string };
 
-const Login: React.FC = () => {
+const Login = () => {
     const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormInputs>();
     const [loginError, setLoginError] = React.useState<string | null>(null);
     const { login, user, isAuthenticated } = useAuth();
@@ -49,7 +50,7 @@ const Login: React.FC = () => {
                 <div className="bg-white shadow-xl rounded-2xl p-8 space-y-6">
                     <div className="text-center">
                         <h1 className="text-3xl font-bold text-slate-800">Selamat Datang!</h1>
-                        <p className="text-slate-500 mt-2">Masuk ke akun Anda untuk melanjutkan.</p>
+                        <p className="text-slate-500 mt-2">Masuk ke akun SI-TAKU Anda.</p>
                     </div>
 
                     {loginError && (
@@ -59,40 +60,29 @@ const Login: React.FC = () => {
                     )}
 
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                        <FormInput
+                            id="username"
+                            label="Username"
+                            {...register('username', { required: 'Username tidak boleh kosong' })}
+                            error={errors.username?.message}
+                            placeholder="Masukkan username"
+                        />
+                        <FormInput
+                            id="password"
+                            label="Password"
+                            type="password"
+                            {...register('password', { required: 'Password tidak boleh kosong' })}
+                            error={errors.password?.message}
+                            placeholder="••••••••"
+                        />
                         <div>
-                            <label htmlFor="username" className="block text-sm font-medium text-slate-700">
-                                Username
-                            </label>
-                            <input
-                                id="username"
-                                type="text"
-                                {...register('username', { required: 'Username tidak boleh kosong' })}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Masukkan username"
-                            />
-                            {errors.username && <p className="text-sm text-rose-600 mt-1">{errors.username.message}</p>}
-                        </div>
-                        <div>
-                            <label htmlFor="password"className="block text-sm font-medium text-slate-700">
-                                Password
-                            </label>
-                            <input
-                                id="password"
-                                type="password"
-                                {...register('password', { required: 'Password tidak boleh kosong' })}
-                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="••••••••"
-                            />
-                             {errors.password && <p className="text-sm text-rose-600 mt-1">{errors.password.message}</p>}
-                        </div>
-                        <div>
-                            <button
+                            <FormButton
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
+                                className="w-full"
                             >
                                 {isSubmitting ? 'Memproses...' : 'Masuk'}
-                            </button>
+                            </FormButton>
                         </div>
                     </form>
                 </div>
