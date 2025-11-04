@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
@@ -7,7 +6,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 interface AuthContextType {
     user: User | null;
-    login: (credentials: Pick<User, 'username' | 'password'>) => Promise<void>;
+    // FIX: The User type does not contain a password. Use a specific type for credentials.
+    login: (credentials: { username: string; password: string; }) => Promise<void>;
     logout: () => void;
     isAuthenticated: boolean;
     isLoading: boolean;
@@ -42,7 +42,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         fetchProfile();
     }, [fetchProfile]);
 
-    const login = async (credentials: Pick<User, 'username' | 'password'>) => {
+    // FIX: The User type does not contain a password. Use a specific type for credentials.
+    const login = async (credentials: { username: string; password: string; }) => {
         const { token, user: loggedInUser } = await api.login(credentials);
         localStorage.setItem('token', token);
         setUser(loggedInUser);

@@ -1,11 +1,11 @@
-
 import React from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { User, Role } from '../types';
 
-type LoginFormInputs = Pick<User, 'username' | 'password'>;
+// FIX: Define login form inputs directly as the User type doesn't include a password.
+type LoginFormInputs = { username: string; password: string };
 
 const Login: React.FC = () => {
     const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormInputs>();
