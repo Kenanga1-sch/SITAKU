@@ -53,6 +53,13 @@ const Login = () => {
                         <p className="text-slate-500 mt-2">Masuk ke akun SI-TAKU Anda.</p>
                     </div>
 
+                    <div className="bg-slate-100 border border-slate-200 text-slate-600 p-4 rounded-lg text-sm">
+                        <p className="font-semibold text-slate-700 mb-2">Gunakan akun demo untuk masuk:</p>
+                        <p>Username: <code className="bg-slate-300 px-1.5 py-0.5 rounded text-slate-800 font-mono">admin</code></p>
+                        <p className="mt-1">Password: <code className="bg-slate-300 px-1.5 py-0.5 rounded text-slate-800 font-mono">password</code></p>
+                        <p className="text-xs mt-3 text-slate-500">Anda juga bisa mencoba username lain: `guru_a`, `bendahara`, `siswa_joko`</p>
+                    </div>
+
                     {loginError && (
                         <div className="bg-rose-100 border-l-4 border-rose-500 text-rose-700 p-4 rounded-md" role="alert">
                             <p>{loginError}</p>
